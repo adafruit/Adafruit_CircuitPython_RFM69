@@ -654,7 +654,9 @@ class RFM69:
             # Handle if the received packet is too small to include the 4 byte
             # RadioHead header--reject this packet and ignore it.
             if fifo_length < 4:
-                # Invalid packet, ignore it
+                # Invalid packet, ignore it.  However finish reading the FIFO
+                # to clear the packet.
+                device.readinto(self._BUFFER, end=fifo_length)
                 packet = None
             else:
                 # Read the 4 bytes of the RadioHead header.
