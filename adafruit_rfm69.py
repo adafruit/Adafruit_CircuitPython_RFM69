@@ -42,6 +42,8 @@ from micropython import const
 
 import adafruit_bus_device.spi_device as spi_device
 
+
+# Internal constants:
 _REG_FIFO            = const(0x00)
 _REG_OP_MODE         = const(0x01)
 _REG_DATA_MOD        = const(0x02)
@@ -93,6 +95,7 @@ STANDBY_MODE = 0b001
 FS_MODE      = 0b010
 TX_MODE      = 0b011
 RX_MODE      = 0b100
+
 
 class RFM69:
 
