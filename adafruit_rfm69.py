@@ -43,6 +43,10 @@ from micropython import const
 import adafruit_bus_device.spi_device as spi_device
 
 
+__version__ = "0.0.0-auto.0"
+__repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_RFM69.git"
+
+
 # Internal constants:
 _REG_FIFO            = const(0x00)
 _REG_OP_MODE         = const(0x01)
