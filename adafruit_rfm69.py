@@ -148,7 +148,12 @@ class RFM69:
     packets at a time.
 
     Also note this library tries to be compatible with raw RadioHead Arduino
-    library communication.  Advanced RadioHead features like address/node
+    library communication.  This means the library sets up the radio
+    modulation to match RadioHead's default of GFSK encoding, 250kbit/s
+    bitrate, and 250khz frequency deviation.  To change this requires
+    explicitly setting the radio's bitrate and encoding register bits.  Read
+    the datasheet and study the init function to see an example of
+    this--advanced users only!  Advanced RadioHead features like address/node
     specific packets or guaranteed delivery are not supported.  Only simple
     broadcast of packets to all listening radios is supported.  Features like
     addressing and guaranteed delivery need to be implemented at an application
