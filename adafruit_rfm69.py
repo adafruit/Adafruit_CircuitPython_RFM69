@@ -239,11 +239,11 @@ class RFM69:
 
     rx_bw_exponent = _RegisterBits(_REG_RX_BW, offset=0, bits=3)
 
-    rx_afc_dcc_freq = _RegisterBits(_REG_AFC_BW, offset=5, bits=3)
+    afc_bw_dcc_freq = _RegisterBits(_REG_AFC_BW, offset=5, bits=3)
 
-    rx_afc_mantissa = _RegisterBits(_REG_AFC_BW, offset=3, bits=2)
+    afc_bw_mantissa = _RegisterBits(_REG_AFC_BW, offset=3, bits=2)
 
-    rx_afc_exponent = _RegisterBits(_REG_AFC_BW, offset=0, bits=3)
+    afc_bw_exponent = _RegisterBits(_REG_AFC_BW, offset=0, bits=3)
 
     packet_format = _RegisterBits(_REG_PACKET_CONFIG1, offset=7, bits=1)
 
@@ -267,7 +267,7 @@ class RFM69:
 
     payload_ready = _RegisterBits(_REG_IRQ_FLAGS2, offset=2)
 
-    def __init__(self, spi, cs, reset, frequency, *, sync_word='\x2d\xd4',
+    def __init__(self, spi, cs, reset, frequency, *, sync_word=b'\x2D\xD4',
                  preamble_length=4, encryption_key=None, high_power=True):
         self._tx_power = 13
         self.high_power = high_power
@@ -351,7 +351,7 @@ class RFM69:
         with self._device as device:
             self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
                                                        # indicate a write.
-            device.write(self._BUFFER, end=2)
+            device.write(self._BUFFER, end=1)
             device.write(buf, end=length)
 
     def _write_u8(self, address, val):
@@ -511,7 +511,7 @@ class RFM69:
         msb = self._read_u8(_REG_FRF_MSB)
         mid = self._read_u8(_REG_FRF_MID)
         lsb = self._read_u8(_REG_FRF_LSB)
-        frf = (msb << 16) | (mid << 8) | lsb
+        frf = ((msb << 16) | (mid << 8) | lsb) & 0xFFFFFF
         frequency = (frf * _FSTEP) / 1000000.0
         return frequency
 
@@ -740,7 +740,7 @@ class RFM69:
                 packet = None
             else:
                 # Read the 4 bytes of the RadioHead header.
-                device.readinto(self._BUFFER, end=5)
+                device.readinto(self._BUFFER, end=4)
                 # Ignore validating any of the header bytes.
                 # Now read the remaining packet payload as the result.
                 fifo_length -= 4
