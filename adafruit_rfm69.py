@@ -492,13 +492,13 @@ class RFM69:
         """
         msb = self._read_u8(_REG_PREAMBLE_MSB)
         lsb = self._read_u8(_REG_PREAMBLE_LSB)
-        return (msb << 8) | lsb
+        return ((msb << 8) | lsb) & 0xFFFF
 
     @preamble_length.setter
     def preamble_length(self, val):
         assert 0 <= val <= 65535
         self._write_u8(_REG_PREAMBLE_MSB, (val >> 8) & 0xFF)
-        self._write_u8(_REG_PREAMBLE_MSB, val & 0xFF)
+        self._write_u8(_REG_PREAMBLE_LSB, val & 0xFF)
 
     @property
     def frequency_mhz(self):
