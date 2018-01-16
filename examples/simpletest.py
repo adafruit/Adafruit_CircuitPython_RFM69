@@ -2,8 +2,6 @@
 # to be received.  This uses the default RadioHead compatible GFSK_Rb250_Fd250
 # modulation and packet format for the radio.
 # Author: Tony DiCola
-import time
-
 import board
 import busio
 import digitalio
@@ -18,13 +16,12 @@ RADIO_FREQ_MHZ   = 915.0  # Frequency of the radio in Mhz. Must match your
 # Define pins connected to the chip.
 CS    = digitalio.DigitalInOut(board.D5)
 RESET = digitalio.DigitalInOut(board.D6)
-G0    = digitalio.DigitalInOut(board.D9)
 
 # Initialize SPI bus.
 spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
 
 # Initialze RFM radio
-rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, G0, RADIO_FREQ_MHZ)
+rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
@@ -51,4 +48,11 @@ while True:
         print('Received nothing! Listening again...')
     else:
         # Received a packet!
-        print('Received: {0}'.format(packet))
+        # Print out the raw bytes of the packet:
+        print('Received (raw bytes): {0}'.format(packet))
+        # And decode to ASCII text and print it too.  Note that you always
+        # receive raw bytes and need to convert to a text format like ASCII
+        # if you intend to do string processing on your data.  Make sure the
+        # sending side is sending ASCII data before you try to decode!
+        packet_text = str(packet, 'ascii')
+        print('Received (ASCII): {0}'.format(packet_text))

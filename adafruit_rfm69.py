@@ -47,6 +47,7 @@ __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_RFM69.git"
 
 
+# pylint: disable=bad-whitespace
 # Internal constants:
 _REG_FIFO            = const(0x00)
 _REG_OP_MODE         = const(0x01)
@@ -99,13 +100,86 @@ STANDBY_MODE = 0b001
 FS_MODE      = 0b010
 TX_MODE      = 0b011
 RX_MODE      = 0b100
+# pylint: enable=bad-whitespace
 
+# Disable the silly too many instance members warning.  Pylint has no knowledge
+# of the context and is merely guessing at the proper amount of members.  This
+# is a complex chip which requires exposing many attributes and state.  Disable
+# the warning to work around the error.
+# pylint: disable=too-many-instance-attributes
 
 class RFM69:
+    """Interface to a RFM69 series packet radio.  Allows simple sending and
+    receiving of wireless data at supported frequencies of the radio
+    (433/915mhz).  These chips are connected using a SPI interface and require
+    the following parameters to initialize:
+    - spi: The SPI bus connected to the chip.  Ensure SCK, MOSI, and MISO are
+           connected.
+    - cs: A DigitalInOut object connected to the chip's CS/chip select line.
+    - reset: A DigitalInOut object connected to the chip's RST/reset line.
+    - frequency: The center frequency to configure for radio transmission and
+                 reception.  Must be a frequency supported by your hardware
+                 (i.e. either 433 or 915mhz).
 
+    Note the D0/interrupt line is currently unused by this module and can
+    remain unconnected.
+
+    There are optional keyword parameters which may be specified during
+    initialization:
+    - sync_word: A byte string up to 8 bytes long which represents the
+                 syncronization word used by received and transmitted packets.
+                 Read the datasheet for a full understanding of this value!
+                 However by default the library will set a value that matches
+                 the RadioHead Arduino library.
+    - preamble_length: The number of bytes to pre-pend to a data packet as a
+                       preamble.  This is by default 4 to match the RadioHead
+                       library.
+    - encryption_key: A 16 byte long string that represents the AES encryption
+                      key to use when encrypting and decrypting packets.  Both
+                      the transmitter and receiver MUST have the same key value!
+                      By default no encryption key is set or used.
+    - high_power: A boolean to indicate if the chip is a high power variant that
+                  supports boosted transmission power.  The default is True as
+                  it supports the common RFM69HCW modules sold by Adafruit.
+
+    Remember this library makes a best effort at receiving packets with pure
+    Python code.  Trying to receive packets too quickly will result in lost
+    data so limit yourself to simple scenarios of sending and receiving single
+    packets at a time.
+
+    Also note this library tries to be compatible with raw RadioHead Arduino
+    library communication.  Advanced RadioHead features like address/node
+    specific packets or guaranteed delivery are not supported.  Only simple
+    broadcast of packets to all listening radios is supported.  Features like
+    addressing and guaranteed delivery need to be implemented at an application
+    level.
+    """
+
+    # Global buffer to hold data sent and received with the chip.  This must be
+    # at least as large as the FIFO on the chip (66 bytes)!  Keep this on the
+    # class level to ensure only one copy ever exists (with the trade-off that
+    # this is NOT re-entrant or thread safe code by design).
     _BUFFER = bytearray(66)
 
     class _RegisterBits:
+        # Class to simplify access to the many configuration bits avaialable
+        # on the chip's registers.  This is a subclass here instead of using
+        # a higher level module to increase the efficiency of memory usage
+        # (all of the instances of this bit class will share the same buffer
+        # used by the parent RFM69 class instance vs. each having their own
+        # buffer and taking too much memory).
+
+        # Quirk of pylint that it requires public methods for a class.  This
+        # is a decorator class in Python and by design it has no public methods.
+        # Instead it uses dunder accessors like get and set below.  For some
+        # reason pylint can't figure this out so disable the check.
+        # pylint: disable=too-few-public-methods
+
+        # Again pylint fails to see the true intent of this code and warns
+        # against private access by calling the write and read functions below.
+        # This is by design as this is an internally used class.  Disable the
+        # check from pylint.
+        # pylint: disable=protected-access
 
         def __init__(self, address, *, offset=0, bits=1):
             assert 0 <= offset <= 7
@@ -129,6 +203,7 @@ class RFM69:
             reg_value |= (val & 0xFF) << self._offset
             obj._write_u8(self._address, reg_value)
 
+    # Control bits from the registers of the chip:
     data_mode = _RegisterBits(_REG_DATA_MOD, offset=5, bits=2)
 
     modulation_type = _RegisterBits(_REG_DATA_MOD, offset=3, bits=2)
@@ -187,7 +262,7 @@ class RFM69:
 
     payload_ready = _RegisterBits(_REG_IRQ_FLAGS2, offset=2)
 
-    def __init__(self, spi, cs, reset, d0, frequency, *, sync_word='\x2d\xd4',
+    def __init__(self, spi, cs, reset, frequency, *, sync_word='\x2d\xd4',
                  preamble_length=4, encryption_key=None, high_power=True):
         self._tx_power = 13
         self.high_power = high_power
@@ -197,14 +272,6 @@ class RFM69:
         # Setup reset as a digital output that's low.
         self._reset = reset
         self._reset.switch_to_output(value=False)
-        # Configure d0 as input to monitor interrupt line from chip.
-        # This is not ideal as it requires polling from very slow Python code,
-        # however it's a best effort for now until proper interrupt support
-        # is available.  The implication is that you can't receive data quickly
-        # as you'll miss interrupts and the FIFO will overflow.  Limit use
-        # to low bandwidth single packet messages.
-        self._d0 = d0
-        self._d0.switch_to_input()
         # Reset the chip.
         self.reset()
         # Check the version of the chip.
@@ -266,6 +333,7 @@ class RFM69:
             device.readinto(buf, end=length)
 
     def _read_u8(self, address):
+        # Read a single byte from the provided address and return it.
         self._read_into(address, self._BUFFER, length=1)
         return self._BUFFER[0]
 
@@ -358,7 +426,8 @@ class RFM69:
     def operation_mode(self):
         """Get and set the operation mode value.  Unless you're manually
         controlling the chip you shouldn't change the operation_mode with this
-        property as other side-effects are required for changing logcial modes--use the idle(), sleep(), transmit(), listen() functions instead
+        property as other side-effects are required for changing logcial
+        modes--use the idle(), sleep(), transmit(), listen() functions instead
         to signal intent for explicit logical modes.
         """
         op_mode = self._read_u8(_REG_OP_MODE)
@@ -592,7 +661,13 @@ class RFM69:
         Note this appends a 4 byte header to be compatible with the RadioHead
         library.
         """
+        # Disable pylint warning to not use length as a check for zero.
+        # This is a puzzling warning as the below code is clearly the most
+        # efficient and proper way to ensure a precondition that the provided
+        # buffer be within an expected range of bounds.  Disable this check.
+        # pylint: disable=len-as-condition
         assert 0 < len(data) <= 60
+        # pylint: enable=len-as-condition
         self.idle()  # Stop receiving to clear FIFO and keep it clear.
         # Fill the FIFO with a packet to send.
         with self._device as device:
@@ -602,10 +677,10 @@ class RFM69:
             # Add 4 bytes of headers to match RadioHead library.
             # Just use the defaults for global broadcast to all receivers
             # for now.
-            self._BUFFER[2] =  _RH_BROADCAST_ADDRESS # txHeaderTo
-            self._BUFFER[3] =  _RH_BROADCAST_ADDRESS # txHeaderFrom
-            self._BUFFER[4] =  0 # txHeaderId
-            self._BUFFER[5] =  0 # txHeaderFlags
+            self._BUFFER[2] = _RH_BROADCAST_ADDRESS # txHeaderTo
+            self._BUFFER[3] = _RH_BROADCAST_ADDRESS # txHeaderFrom
+            self._BUFFER[4] = 0 # txHeaderId
+            self._BUFFER[5] = 0 # txHeaderFlags
             device.write(self._BUFFER, end=6)
             # Now send the payload.
             device.write(data)
