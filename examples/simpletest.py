@@ -33,11 +33,17 @@ print('Frequency: {0}mhz'.format(rfm69.frequency_mhz))
 print('Bit rate: {0}kbit/s'.format(rfm69.bitrate/1000))
 print('Frequency deviation: {0}hz'.format(rfm69.frequency_deviation))
 
-# Send a packet.
+# Send a packet.  Note you can only send a packet up to 60 bytes in length.
+# This is a limitation of the radio packet size, so if you need to send larger
+# amounts of data you will need to break it into smaller send calls.  Each send
+# call will wait for the previous one to finish before continuing.
 rfm69.send('Hello world!\r\n')
 print('Sent hello world message!')
 
-# Wait to receive packets.
+# Wait to receive packets.  Note that this library can't receive data at a fast
+# rate, in fact it can only receive and process one 60 byte packet at a time.
+# This means you should only use this for low bandwidth scenarios, like sending
+# and receiving a single message at a time.
 print('Waiting for packets...')
 while True:
     packet = rfm69.receive()
