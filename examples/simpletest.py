@@ -18,7 +18,7 @@ CS    = digitalio.DigitalInOut(board.D5)
 RESET = digitalio.DigitalInOut(board.D6)
 # Or uncomment and instead use these if using a Feather M0 RFM69 board and the appropriate CircuitPython build:
 #CS    = digitalio.DigitalInOut(board.RFM69_CS)
-#RESET = digitalio.DigitalInOut(board.RFM69_RESET)
+#RESET = digitalio.DigitalInOut(board.RFM69_RST)
 
 # Initialize SPI bus.
 spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
