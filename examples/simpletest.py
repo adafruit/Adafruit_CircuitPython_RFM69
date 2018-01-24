@@ -13,9 +13,12 @@ import adafruit_rfm69
 RADIO_FREQ_MHZ   = 915.0  # Frequency of the radio in Mhz. Must match your
                           # module! Can be a value like 915.0, 433.0, etc.
 
-# Define pins connected to the chip.
+# Define pins connected to the chip, use these if wiring up the breakout according to the guide:
 CS    = digitalio.DigitalInOut(board.D5)
 RESET = digitalio.DigitalInOut(board.D6)
+# Or uncomment and instead use these if using a Feather M0 RFM69 board and the appropriate CircuitPython build:
+#CS    = digitalio.DigitalInOut(board.RFM69_CS)
+#RESET = digitalio.DigitalInOut(board.RFM69_RESET)
 
 # Initialize SPI bus.
 spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
