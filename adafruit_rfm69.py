@@ -26,7 +26,8 @@
 CircuitPython RFM69 packet radio module. This supports basic RadioHead-compatible sending and
 receiving of packets with RFM69 series radios (433/915Mhz).
 
-.. note:: This does NOT support advanced RadioHead features like guaranteed delivery--only 'raw' packets are currently supported.
+.. note:: This does NOT support advanced RadioHead features like guaranteed delivery--only 'raw'
+    packets are currently supported.
 
 .. warning:: This is NOT for LoRa radios!
 
