@@ -3,25 +3,28 @@ Introduction
 ============
 
 .. image:: https://readthedocs.org/projects/adafruit-circuitpython-rfm69/badge/?version=latest
-
     :target: https://circuitpython.readthedocs.io/projects/rfm69/en/latest/
-
     :alt: Documentation Status
 
 .. image :: https://img.shields.io/discord/327254708534116352.svg
     :target: https://discord.gg/nBQh6qu
     :alt: Discord
 
-CircuitPython RFM69 packet radio module.  This supports basic
-RadioHead-compatible sending and receiving of packets with RFM69 series radios
-(433/915Mhz).  Note this does NOT support advanced RadioHead features like
-guaranteed delivery--only 'raw' packets are currently supported.  In addition
-this is NOT for LoRa radios! Finally be aware this is a 'best effort' at
-receiving data using pure Python code--there is not interrupt support so you
-might lose packets if they're sent too quickly for the board to process them.
-You will have the most luck using this in simple low bandwidth scenarios like
-sending and receiving a 60 byte packet at a time--don't try to receive many
-kilobytes of data at a time!
+.. image:: https://travis-ci.org/adafruit/Adafruit_CircuitPython_RFM69.svg?branch=master
+    :target: https://travis-ci.org/adafruit/Adafruit_CircuitPython_RFM69
+    :alt: Build Status
+
+CircuitPython RFM69 packet radio module.  This supports basic RadioHead-compatible sending and
+receiving of packets with RFM69 series radios (433/915Mhz).
+
+.. note:: This does NOT support advanced RadioHead features like guaranteed delivery--only 'raw' packets are currently supported.
+
+.. warning:: This is NOT for LoRa radios!
+
+.. note:: This is a 'best effort' at receiving data using pure Python code--there is not interrupt
+    support so you might lose packets if they're sent too quickly for the board to process them.
+    You will have the most luck using this in simple low bandwidth scenarios like sending and
+    receiving a 60 byte packet at a time--don't try to receive many kilobytes of data at a time!
 
 Dependencies
 =============
