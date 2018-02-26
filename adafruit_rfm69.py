@@ -260,11 +260,11 @@ class RFM69:
     payload_ready = _RegisterBits(_REG_IRQ_FLAGS2, offset=2)
 
     def __init__(self, spi, cs, reset, frequency, *, sync_word=b'\x2D\xD4',
-                 preamble_length=4, encryption_key=None, high_power=True):
+                 preamble_length=4, encryption_key=None, high_power=True, baudrate=10000000):
         self._tx_power = 13
         self.high_power = high_power
         # Device support SPI mode 0 (polarity & phase = 0) up to a max of 10mhz.
-        self._device = spi_device.SPIDevice(spi, cs, baudrate=10000000,
+        self._device = spi_device.SPIDevice(spi, cs, baudrate=baudrate,
                                             polarity=0, phase=0)
         # Setup reset as a digital output that's low.
         self._reset = reset
