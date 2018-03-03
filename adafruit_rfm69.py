@@ -37,6 +37,35 @@ receiving of packets with RFM69 series radios (433/915Mhz).
     receiving a 60 byte packet at a time--don't try to receive many kilobytes of data at a time!
 
 * Author(s): Tony DiCola
+
+Implementation Notes
+--------------------
+
+**Hardware:**
+
+* Adafruit `RFM69HCW Transceiver Radio Breakout - 868 or 915 MHz - RadioFruit
+  <https://www.adafruit.com/product/3070>`_ (Product ID: 3070)
+
+* Adafruit `RFM69HCW Transceiver Radio Breakout - 433 MHz - RadioFruit
+  <https://www.adafruit.com/product/3071>`_ (Product ID: 3071)
+
+* Adafruit `Feather M0 RFM69HCW Packet Radio - 868 or 915 MHz - RadioFruit
+  <https://www.adafruit.com/product/3176>`_ (Product ID: 3176)
+
+* Adafruit `Feather M0 RFM69HCW Packet Radio - 433 MHz - RadioFruit
+  <https://www.adafruit.com/product/3177>`_ (Product ID: 3177)
+
+* Adafruit `Radio FeatherWing - RFM69HCW 900MHz - RadioFruit
+  <https://www.adafruit.com/product/3229>`_ (Product ID: 3229)
+
+* Adafruit `Radio FeatherWing - RFM69HCW 433MHz - RadioFruit
+  <https://www.adafruit.com/product/3230>`_ (Product ID: 3230)
+
+**Software and Dependencies:**
+
+* Adafruit CircuitPython firmware for the ESP8622 and M0-based boards:
+  https://github.com/adafruit/circuitpython/releases
+* Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 """
 import time
 
