@@ -32,7 +32,7 @@ Table of Contents
 
     Adafruit Feather M0 RFM69HCW Packet Radio - 868 or 915 MHz - RadioFruit <https://www.adafruit.com/product/3176>
 
-    Adafruit Feather M0 RFM69HCW Packet Radio - 433 MHz - RadioFruit <https://www.adafruit.com/product/3176>
+    Adafruit Feather M0 RFM69HCW Packet Radio - 433 MHz - RadioFruit <https://www.adafruit.com/product/3177>
 
     Adafruit Radio FeatherWing - RFM69HCW 900MHz - RadioFruit <https://www.adafruit.com/product/3229>
 
