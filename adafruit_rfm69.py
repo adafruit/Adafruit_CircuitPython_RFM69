@@ -340,7 +340,7 @@ class RFM69:
         # Set the preamble length.
         self.preamble_length = preamble_length
         # Set frequency.
-        self.frequency = frequency
+        self.frequency_mhz = frequency
         # Set encryption key.
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
