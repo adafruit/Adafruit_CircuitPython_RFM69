@@ -39,8 +39,19 @@ This is easily achieved by downloading
 
 Usage Example
 =============
-
 See examples/rfm69_simpletest.py for a simple demo of the usage.
+Note: the default baudrate for the SPI is 50000000 (5MHz). 
+The maximum setting is 10Mhz but 
+transmission errors have been observed expecially when using breakout boards.
+For breakout boards or other configurations where the boards are separated,
+it may be necessary to reduce the baudrate for reliable data transmission.
+The baud rate may be specified as an keyword parameter when initializing the board.
+To set it to 1000000 use :
+.. code-block:: python# Initialze RFM radio
+.. code-block:: python
+    # Initialze RFM radio
+     rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, RADIO_FREQ_MHZ,baudrate=1000000)
+
 
 Contributing
 ============

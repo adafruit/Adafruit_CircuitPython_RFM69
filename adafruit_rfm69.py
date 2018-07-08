@@ -289,7 +289,7 @@ class RFM69:
     payload_ready = _RegisterBits(_REG_IRQ_FLAGS2, offset=2)
 
     def __init__(self, spi, cs, reset, frequency, *, sync_word=b'\x2D\xD4',
-                 preamble_length=4, encryption_key=None, high_power=True, baudrate=10000000):
+                 preamble_length=4, encryption_key=None, high_power=True, baudrate=5000000):
         self._tx_power = 13
         self.high_power = high_power
         # Device support SPI mode 0 (polarity & phase = 0) up to a max of 10mhz.
@@ -673,10 +673,12 @@ class RFM69:
         self._write_u8(_REG_FDEV_MSB, fdev >> 8)
         self._write_u8(_REG_FDEV_LSB, fdev & 0xFF)
 
-    def send(self, data):
-        """Send a string of data using the transmitter.  You can only send 60 bytes at a time
-           (limited by chip's FIFO size and appended headers). Note this appends a 4 byte header to
-           be compatible with the RadioHead library.
+    def send(self, data, timeout=2.):
+        """Send a string of data using the transmitter.
+           You can only send 60 bytes at a time
+           (limited by chip's FIFO size and appended headers).
+           Note this appends a 4 byte header to be compatible with the RadioHead library.
+           The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
         """
         # Disable pylint warning to not use length as a check for zero.
         # This is a puzzling warning as the below code is clearly the most
@@ -707,10 +709,17 @@ class RFM69:
         # best that can be done right now without interrupts).
         while not self.packet_sent:
             pass
+        start = time.monotonic()
+        timed_out = False
+        while not timed_out and not self.packet_sent:
+            if (time.monotonic() - start) >= timeout:
+                timed_out = True
         # Go back to idle mode after transmit.
         self.idle()
+        if timed_out:
+            raise RuntimeError('Timeout during packet send')
 
-    def receive(self, timeout_s=0.5, keep_listening=True):
+    def receive(self, timeout=0.5, keep_listening=True):
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
@@ -726,37 +735,39 @@ class RFM69:
         # enough, however it's the best that can be done from Python without
         # interrupt supports.
         start = time.monotonic()
-        while not self.payload_ready:
-            if (time.monotonic() - start) >= timeout_s:
-                return None  # Exceeded timeout.
+        timed_out = False
+        while not timed_out and not self.payload_ready:
+            if (time.monotonic() - start) >= timeout:
+                timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # Enter idle mode to stop receiving other packets.
         self.idle()
-        # Read the data from the FIFO.
-        with self._device as device:
-            self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
-                                                # value (read).
-            device.write(self._BUFFER, end=1)
-            # Read the length of the FIFO.
-            device.readinto(self._BUFFER, end=1)
-            fifo_length = self._BUFFER[0]
-            # Handle if the received packet is too small to include the 4 byte
-            # RadioHead header--reject this packet and ignore it.
-            if fifo_length < 4:
-                # Invalid packet, ignore it.  However finish reading the FIFO
-                # to clear the packet.
-                device.readinto(self._BUFFER, end=fifo_length)
-                packet = None
-            else:
-                # Read the 4 bytes of the RadioHead header.
-                device.readinto(self._BUFFER, end=4)
-                # Ignore validating any of the header bytes.
-                # Now read the remaining packet payload as the result.
-                fifo_length -= 4
-                packet = bytearray(fifo_length)
-                device.readinto(packet)
-        # Listen again if necessary and return the result packet.
-        if keep_listening:
-            self.listen()
+        if not timed_out:
+            # Read the data from the FIFO.
+            with self._device as device:
+                self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
+                                                    # value (read).
+                device.write(self._BUFFER, end=1)
+                # Read the length of the FIFO.
+                device.readinto(self._BUFFER, end=1)
+                fifo_length = self._BUFFER[0]
+                # Handle if the received packet is too small to include the 4 byte
+                # RadioHead header--reject this packet and ignore it.
+                if fifo_length < 4:
+                    # Invalid packet, ignore it.  However finish reading the FIFO
+                    # to clear the packet.
+                    device.readinto(self._BUFFER, end=fifo_length)
+                    packet = None
+                else:
+                    # Read the 4 bytes of the RadioHead header.
+                    device.readinto(self._BUFFER, end=4)
+                    # Ignore validating any of the header bytes.
+                    # Now read the remaining packet payload as the result.
+                    fifo_length -= 4
+                    packet = bytearray(fifo_length)
+                    device.readinto(packet)
+            # Listen again if necessary and return the result packet.
+            if keep_listening:
+                self.listen()
         return packet

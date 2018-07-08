@@ -51,7 +51,7 @@ print('Waiting for packets...')
 while True:
     packet = rfm69.receive()
     # Optionally change the receive timeout from its default of 0.5 seconds:
-    #packet = rfm69.receive(timeout_s=5.0)
+    #packet = rfm69.receive(timeout=5.0)
     # If no packet was received during the timeout then None is returned.
     if packet is None:
         print('Received nothing! Listening again...')
