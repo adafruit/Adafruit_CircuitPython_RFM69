@@ -40,7 +40,7 @@ This is easily achieved by downloading
 Usage Example
 =============
 See examples/rfm69_simpletest.py for a simple demo of the usage.
-Note: the default baudrate for the SPI is 50000000 (5MHz). 
+Note: the default baudrate for the SPI is 5000000 (5MHz). 
 The maximum setting is 10Mhz but 
 transmission errors have been observed expecially when using breakout boards.
 For breakout boards or other configurations where the boards are separated,
