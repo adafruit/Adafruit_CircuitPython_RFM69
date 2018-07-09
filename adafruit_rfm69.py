@@ -707,8 +707,6 @@ class RFM69:
         self.transmit()
         # Wait for packet sent interrupt with explicit polling (not ideal but
         # best that can be done right now without interrupts).
-        while not self.packet_sent:
-            pass
         start = time.monotonic()
         timed_out = False
         while not timed_out and not self.packet_sent:
