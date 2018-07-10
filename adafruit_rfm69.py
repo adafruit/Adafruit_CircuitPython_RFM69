@@ -741,31 +741,32 @@ class RFM69:
         packet = None
         # Enter idle mode to stop receiving other packets.
         self.idle()
-        if not timed_out:
-            # Read the data from the FIFO.
-            with self._device as device:
-                self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
-                                                    # value (read).
-                device.write(self._BUFFER, end=1)
-                # Read the length of the FIFO.
-                device.readinto(self._BUFFER, end=1)
-                fifo_length = self._BUFFER[0]
-                # Handle if the received packet is too small to include the 4 byte
-                # RadioHead header--reject this packet and ignore it.
-                if fifo_length < 4:
-                    # Invalid packet, ignore it.  However finish reading the FIFO
-                    # to clear the packet.
-                    device.readinto(self._BUFFER, end=fifo_length)
-                    packet = None
-                else:
-                    # Read the 4 bytes of the RadioHead header.
-                    device.readinto(self._BUFFER, end=4)
-                    # Ignore validating any of the header bytes.
-                    # Now read the remaining packet payload as the result.
-                    fifo_length -= 4
-                    packet = bytearray(fifo_length)
-                    device.readinto(packet)
-            # Listen again if necessary and return the result packet.
-            if keep_listening:
-                self.listen()
+        if timed_out:
+            return None
+        # Read the data from the FIFO.
+        with self._device as device:
+            self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
+                                                # value (read).
+            device.write(self._BUFFER, end=1)
+            # Read the length of the FIFO.
+            device.readinto(self._BUFFER, end=1)
+            fifo_length = self._BUFFER[0]
+            # Handle if the received packet is too small to include the 4 byte
+            # RadioHead header--reject this packet and ignore it.
+            if fifo_length < 4:
+                # Invalid packet, ignore it.  However finish reading the FIFO
+                # to clear the packet.
+                device.readinto(self._BUFFER, end=fifo_length)
+                packet = None
+            else:
+                # Read the 4 bytes of the RadioHead header.
+                device.readinto(self._BUFFER, end=4)
+                # Ignore validating any of the header bytes.
+                # Now read the remaining packet payload as the result.
+                fifo_length -= 4
+                packet = bytearray(fifo_length)
+                device.readinto(packet)
+        # Listen again if necessary and return the result packet.
+        if keep_listening:
+            self.listen()
         return packet
