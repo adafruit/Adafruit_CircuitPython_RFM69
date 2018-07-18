@@ -71,7 +71,7 @@ import time
 
 from micropython import const
 
-import adafruit_bus_device.spi_device as spi_device
+import adafruit_bus_device.spi_device as spidev
 
 
 __version__ = "0.0.0-auto.0"
@@ -293,8 +293,8 @@ class RFM69:
         self._tx_power = 13
         self.high_power = high_power
         # Device support SPI mode 0 (polarity & phase = 0) up to a max of 10mhz.
-        self._device = spi_device.SPIDevice(spi, cs, baudrate=baudrate,
-                                            polarity=0, phase=0)
+        self._device = spidev.SPIDevice(spi, cs, baudrate=baudrate,
+                                        polarity=0, phase=0)
         # Setup reset as a digital output that's low.
         self._reset = reset
         self._reset.switch_to_output(value=False)
