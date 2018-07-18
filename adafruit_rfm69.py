@@ -71,7 +71,7 @@ import time
 
 from micropython import const
 
-import adafruit_bus_device.spi_device
+import adafruit_bus_device.spi_device as spi_device
 
 
 __version__ = "0.0.0-auto.0"
@@ -585,13 +585,13 @@ class RFM69:
         if pa0 and not pa1 and not pa2:
             # -18 to 13 dBm range
             return -18 + self.output_power
-        elif not pa0 and pa1 and not pa2:
+        if not pa0 and pa1 and not pa2:
             # -2 to 13 dBm range
             return -18 + self.output_power
-        elif not pa0 and pa1 and pa2 and not self.high_power:
+        if not pa0 and pa1 and pa2 and not self.high_power:
             # 2 to 17 dBm range
             return -14 + self.output_power
-        elif not pa0 and pa1 and pa2 and self.high_power:
+        if not pa0 and pa1 and pa2 and self.high_power:
             # 5 to 20 dBm range
             return -11 + self.output_power
         raise RuntimeError('Power amplifiers in unknown state!')
