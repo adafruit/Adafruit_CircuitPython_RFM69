@@ -1,32 +1,33 @@
-# This is a common .travis.yml for generating library release zip files for
-# CircuitPython library releases using circuitpython-build-tools.
-# See https://github.com/adafruit/circuitpython-build-tools for detailed setup
-# instructions.
-
 dist: trusty
 sudo: false
 language: python
 python:
-    - "3.6"
-
+- '3.6'
 cache:
-    pip: true
-
+  pip: true
 deploy:
-  provider: releases
-  api_key: $GITHUB_TOKEN
+- provider: releases
+  api_key: "$GITHUB_TOKEN"
   file_glob: true
-  file: $TRAVIS_BUILD_DIR/bundles/*
+  file: "$TRAVIS_BUILD_DIR/bundles/*"
   skip_cleanup: true
   overwrite: true
   on:
     tags: true
-
+- provider: pypi
+  user: adafruit-travis
+  on:
+    tags: true
+  password:
+    secure: n1FdbvnLdosw0DtUb8h+6qZcCFScY4xzmSb5eE1RwROq8TxdEbPDUVVmZVbZzon4EhKO6NqRPTiMeVAl4d7T2YqCfDlvTwmWnqXaZS6QYoUrD1do4i+sGIvnXmJQNARARDLV+nPYp4DKYvvqSjnpcsu8GUAX91iTCOJPKrT8ls2NG1QvSrBXTJN0JBy7yGd3NBxRA7+qZCKemhcU/CJGcDnsZM81+jC73E6NmtGUEazWnPEXrTbVbzA907A6mu4vqGyLsXhvI9bdSzWqyIsm9ogfKYT5YNuOUoUjdQ1brfwvoS8ap+do4dOH1JzgMvfb9o2KIuHXIdIcMn/jumPfR4ySS9S8/mdnoVKh5zafp/WeQi5XFgfPv8PfmPQBkEh5TsQic7hBGS/36xCssKdi9vTtseBH3wde9KB9YMhDhagJFl9+P/9FAYjBuEn0yEkAZ5QA/nWyIjNqrbU6WSw9nxpjRy7f+XwFvbrI0w1ErgNE54eaL5SFCmrPWT0oA5puHcjtl5N2BEM8Abm6FyPrKEagDKSxclcBzM8kizgMddmbJ8Gn7waPuX3hzSt5rEv+h5d/3bP+uUfDOXTeydvEjP57vEE8l5fTm/QjcBaLY/jUhubRld3LUXW/VUglVpI5iOgjpN3xRq183iWsLCKpHnzxW+PYoqMmTBWqBKl6F2o=
 install:
-  - pip install pylint circuitpython-build-tools Sphinx sphinx-rtd-theme
-
+- pip install -r requirements.txt
+- pip install pylint circuitpython-build-tools Sphinx sphinx-rtd-theme
+- pip install --force-reinstall pylint==1.9.2
 script:
-  - pylint adafruit_rfm69.py
-  - ([[ ! -d "examples" ]] || pylint --disable=missing-docstring,invalid-name,bad-whitespace,line-too-long examples/*.py)
-  - circuitpython-build-bundles --filename_prefix adafruit-circuitpython-rfm69 --library_location .
-  - cd docs && sphinx-build -E -W -b html . _build/html
+- pylint adafruit_rfm69.py
+- ([[ ! -d "examples" ]] || pylint --disable=missing-docstring,invalid-name,bad-whitespace,line-too-long
+  examples/*.py)
+- circuitpython-build-bundles --filename_prefix adafruit-circuitpython-rfm69 --library_location
+  .
+- cd docs && sphinx-build -E -W -b html . _build/html && cd ..
