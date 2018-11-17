@@ -41,7 +41,7 @@ print('Frequency deviation: {0}hz'.format(rfm69.frequency_deviation))
 # This is a limitation of the radio packet size, so if you need to send larger
 # amounts of data you will need to break it into smaller send calls.  Each send
 # call will wait for the previous one to finish before continuing.
-rfm69.send('Hello world!\r\n')
+rfm69.send(bytes('Hello world!\r\n',"utf-8"))
 print('Sent hello world message!')
 
 # Wait to receive packets.  Note that this library can't receive data at a fast
