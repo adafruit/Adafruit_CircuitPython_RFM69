@@ -748,6 +748,9 @@ class RFM69:
         if timed_out:
             return None
         # Read the data from the FIFO.
+        # pylint: disable=len-as-condition
+        assert len(rx_filter) == 2, "rx filter must be 2-tuple (To,From)"
+        # pylint: enable=len-as-condition
         with self._device as device:
             self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
                                                 # value (read).
@@ -770,10 +773,8 @@ class RFM69:
                 else: # ignore packet if rx_filter set and not addressed properly
                     if rx_filter[0] != _RH_BROADCAST_ADDRESS and packet[0] != rx_filter[0]:
                         packet = None
-                        print("packet filtered : To mismatch")
                     elif rx_filter[1] != _RH_BROADCAST_ADDRESS and packet[1] != rx_filter[1]:
                         packet = None
-                        print("packet filtered : From mismatch")
 
         # Listen again if necessary and return the result packet.
         if keep_listening:
