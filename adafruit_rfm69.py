@@ -679,7 +679,9 @@ class RFM69:
         """Send a string of data using the transmitter.
            You can only send 60 bytes at a time
            (limited by chip's FIFO size and appended headers).
-           Note this appends a 4 byte header to be compatible with the RadioHead library.
+           This appends a 4 byte header to be compatible with the RadioHead library.
+           The tx_header defaults to using the Broadcast addresses. It may be overidden
+           by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
            The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
         """
         # Disable pylint warning to not use length as a check for zero.
@@ -725,10 +727,22 @@ class RFM69:
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
-           reception). Note this assumes a 4-byte header is prepended to the data for compatibilty
-           with the RadioHead library (the header is not validated nor returned). If keep_listening
-           is True (the default) the chip will immediately enter listening mode after reception of
-           a packet, otherwise it will fall back to idle mode and ignore any future reception.
+           reception).
+           If keep_listening is True (the default) the chip will immediately enter listening mode
+           after reception of a packet, otherwise it will fall back to idle mode and ignore any
+           future reception.
+           A 4-byte header must be prepended to the data for compatibilty with the
+           RadioHead library.
+           The header consists of a 4 bytes (To,From,ID,Flags). The default setting will accept
+           any  incomming packet and strip the header before returning the packet to the caller.
+           If with_header is True then the 4 byte header will be returned with the packet.
+           The payload then begins at packet[4].
+           rx_fliter may be set to reject any "non-broadcast" packets that do not contain the
+           specfied "To" value in the header.
+           if rx_filter is set to 0xff (_RH_BROADCAST_ADDRESS) or if the  "To" field (packet[[0])
+           is equal to 0xff then the packet will be accepted and returned to the caller.
+           If rx_filter is not 0xff and packet[0] does not match rx_filter then
+           the packet is ignored and None is returned.
         """
         # Make sure we are listening for packets.
         self.listen()
