@@ -10,8 +10,8 @@ Introduction
     :target: https://discord.gg/nBQh6qu
     :alt: Discord
 
-.. image:: https://travis-ci.org/adafruit/Adafruit_CircuitPython_RFM69.svg?branch=master
-    :target: https://travis-ci.org/adafruit/Adafruit_CircuitPython_RFM69
+.. image:: https://travis-ci.com/adafruit/Adafruit_CircuitPython_RFM69.svg?branch=master
+    :target: https://travis-ci.com/adafruit/Adafruit_CircuitPython_RFM69
     :alt: Build Status
 
 CircuitPython RFM69 packet radio module.  This supports basic RadioHead-compatible sending and
