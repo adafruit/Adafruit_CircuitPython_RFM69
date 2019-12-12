@@ -683,6 +683,8 @@ class RFM69:
            The tx_header defaults to using the Broadcast addresses. It may be overidden
            by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
            The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
+           The keep_listening argument should be set to True if you want to start listening
+           automatically after the packet is sent. The default setting is False.
         """
         # Disable pylint warning to not use length as a check for zero.
         # This is a puzzling warning as the below code is clearly the most

@@ -2,6 +2,7 @@
 # to be received. Interrupts are used only for receive. sending is done with polling.
 # This example is for systems that support interrupts like the Raspberry Pi with "blinka"
 # CircuitPython does not support interrupts so it will not work on  Circutpython boards
+# Author: Tony DiCola, Jerry Needell
 import time
 import board
 import busio
