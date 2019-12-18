@@ -674,7 +674,7 @@ class RFM69:
         self._write_u8(_REG_FDEV_MSB, fdev >> 8)
         self._write_u8(_REG_FDEV_LSB, fdev & 0xFF)
 
-    def send(self, data, timeout=2.,
+    def send(self, data, timeout=2., keep_listening=False,
              tx_header=(_RH_BROADCAST_ADDRESS, _RH_BROADCAST_ADDRESS, 0, 0)):
         """Send a string of data using the transmitter.
            You can only send 60 bytes at a time
@@ -683,6 +683,8 @@ class RFM69:
            The tx_header defaults to using the Broadcast addresses. It may be overidden
            by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
            The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
+           The keep_listening argument should be set to True if you want to start listening
+           automatically after the packet is sent. The default setting is False.
         """
         # Disable pylint warning to not use length as a check for zero.
         # This is a puzzling warning as the below code is clearly the most
@@ -717,8 +719,12 @@ class RFM69:
         while not timed_out and not self.packet_sent:
             if (time.monotonic() - start) >= timeout:
                 timed_out = True
-        # Go back to idle mode after transmit.
-        self.idle()
+        # Listen again if necessary and return the result packet.
+        if keep_listening:
+            self.listen()
+        else:
+        # Enter idle mode to stop receiving other packets.
+            self.idle()
         if timed_out:
             raise RuntimeError('Timeout during packet send')
 
@@ -727,7 +733,7 @@ class RFM69:
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
-           reception).
+           reception). If timeout  is None then  it is not used ( for use with interrupts)
            If keep_listening is True (the default) the chip will immediately enter listening mode
            after reception of a packet, otherwise it will fall back to idle mode and ignore any
            future reception.
@@ -744,17 +750,19 @@ class RFM69:
            If rx_filter is not 0xff and packet[0] does not match rx_filter then
            the packet is ignored and None is returned.
         """
-        # Make sure we are listening for packets.
-        self.listen()
-        # Wait for the payload_ready interrupt.  This is not ideal and will
-        # surely miss or overflow the FIFO when packets aren't read fast
-        # enough, however it's the best that can be done from Python without
-        # interrupt supports.
-        start = time.monotonic()
         timed_out = False
-        while not timed_out and not self.payload_ready:
-            if (time.monotonic() - start) >= timeout:
-                timed_out = True
+        if timeout is not None:
+            # Make sure we are listening for packets.
+            self.listen()
+            # Wait for the payload_ready interrupt.  This is not ideal and will
+            # surely miss or overflow the FIFO when packets aren't read fast
+            # enough, however it's the best that can be done from Python without
+            # interrupt supports.
+            start = time.monotonic()
+            timed_out = False
+            while not timed_out and not self.payload_ready:
+                if (time.monotonic() - start) >= timeout:
+                    timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # Enter idle mode to stop receiving other packets.
