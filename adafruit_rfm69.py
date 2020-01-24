@@ -68,6 +68,7 @@ Implementation Notes
 * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 """
 import time
+import random
 
 from micropython import const
 
@@ -124,6 +125,11 @@ _FSTEP  = _FXOSC / 524288
 
 # RadioHead specific compatibility constants.
 _RH_BROADCAST_ADDRESS = const(0xFF)
+# The acknowledgement bit in the FLAGS
+# The top 4 bits of the flags are reserved for RadioHead. The lower 4 bits are reserved
+# for application layer use.
+_RH_FLAGS_ACK = const(0x80)
+_RH_FLAGS_RETRY = const(0x40)
 
 # User facing constants:
 SLEEP_MODE   = 0b000
@@ -345,7 +351,14 @@ class RFM69:
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
-
+        # initialize ack timeout(seconds) and retries
+        self.ack_timeout = .2
+        self.ack_retries = 5
+        self.ack_delay = None
+        #initialize sequence number
+        self.sequence_number = 0
+        #initialize seen Ids list
+        self.seen_ids = bytearray(256)
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
@@ -728,8 +741,59 @@ class RFM69:
         if timed_out:
             raise RuntimeError('Timeout during packet send')
 
+
+    def send_with_ack(self, data,
+                      tx_header=(_RH_BROADCAST_ADDRESS, _RH_BROADCAST_ADDRESS, 0, 0)):
+        """Send a string of data using the transmitter.
+           You can only send 60 bytes at a time
+           (limited by chip's FIFO size and appended headers).
+           This appends a 4 byte header to be compatible with the RadioHead library.
+           The tx_header defaults to using the Broadcast addresses. It may be overidden
+           by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
+           retries ...
+           withACK ...
+        """
+        if self.ack_retries:
+            retries_remaining = self.ack_retries
+        else:
+            retries_remaining = 1
+        got_ack = False
+        self.sequence_number = (self.sequence_number + 1)&0xff
+        while not got_ack and retries_remaining:
+            #print("retries remaining ",retries_remaining)
+            tx_to = tx_header[0]
+            tx_from = tx_header[1]
+            tx_id = self.sequence_number
+            tx_flags = tx_header[3]
+            if retries_remaining != self.ack_retries:
+                tx_flags |= _RH_FLAGS_RETRY
+                tx_flags |= ((self.ack_retries - retries_remaining)&0xf)
+            # set up ack timeout now to minimize delay after sending packet
+            ack_timeout = self.ack_timeout + self.ack_timeout * random.random()
+            self.send(data, tx_header=(tx_to, tx_from, tx_id, tx_flags), keep_listening=True)
+            # Don't look for ACK from Broadcast message
+            if tx_to == _RH_BROADCAST_ADDRESS:
+                got_ack = True
+            else:
+                # wait for a packet from our destination
+                # randomly adjust timeout
+                ack_packet = self.receive(timeout=ack_timeout, with_header=True, rx_filter=tx_from)
+                if ack_packet is not None:
+                    if ack_packet[3] & _RH_FLAGS_ACK:
+                        # check the ID
+                        if ack_packet[2] == tx_id:
+                            got_ack = True
+                            #print('Ack Received (raw header):', [hex(x) for x in ack_packet[0:4]])
+                            break
+            # pause before next retry -- random delay
+            time.sleep(ack_timeout)
+            retries_remaining = retries_remaining - 1
+        return got_ack
+
+    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-branches
     def receive(self, timeout=0.5, keep_listening=True, with_header=False,
-                rx_filter=_RH_BROADCAST_ADDRESS):
+                rx_filter=_RH_BROADCAST_ADDRESS, with_ack=False):
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
@@ -749,15 +813,16 @@ class RFM69:
            is equal to 0xff then the packet will be accepted and returned to the caller.
            If rx_filter is not 0xff and packet[0] does not match rx_filter then
            the packet is ignored and None is returned.
+           If with_ack is True, send an ACK after receipt
         """
         timed_out = False
         if timeout is not None:
-            # Make sure we are listening for packets.
-            self.listen()
             # Wait for the payload_ready interrupt.  This is not ideal and will
             # surely miss or overflow the FIFO when packets aren't read fast
             # enough, however it's the best that can be done from Python without
             # interrupt supports.
+            # Make sure we are listening for packets.
+            self.listen()
             start = time.monotonic()
             timed_out = False
             while not timed_out and not self.payload_ready:
@@ -766,34 +831,50 @@ class RFM69:
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # Enter idle mode to stop receiving other packets.
-        self.idle()
-        if timed_out:
-            return None
-        # Read the data from the FIFO.
-        with self._device as device:
-            self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
-                                                # value (read).
-            device.write(self._BUFFER, end=1)
-            # Read the length of the FIFO.
-            device.readinto(self._BUFFER, end=1)
-            fifo_length = self._BUFFER[0]
-            # Handle if the received packet is too small to include the 4 byte
-            # RadioHead header--reject this packet and ignore it.
-            if fifo_length < 4:
-                # Invalid packet, ignore it.  However finish reading the FIFO
-                # to clear the packet.
-                device.readinto(self._BUFFER, end=fifo_length)
-                packet = None
-            else:
-                packet = bytearray(fifo_length)
-                device.readinto(packet)
-                if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
-                        and packet[0] != rx_filter):
+        #self.idle()
+        if not timed_out:
+            # Read the data from the FIFO.
+            with self._device as device:
+                self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
+                                                    # value (read).
+                device.write(self._BUFFER, end=1)
+                # Read the length of the FIFO.
+                device.readinto(self._BUFFER, end=1)
+                fifo_length = self._BUFFER[0]
+                # Handle if the received packet is too small to include the 4 byte
+                # RadioHead header--reject this packet and ignore it.
+                if fifo_length < 5:
+                    # Invalid packet, ignore it.  However finish reading the FIFO
+                    # to clear the packet.
+                    device.readinto(self._BUFFER, end=fifo_length)
                     packet = None
-                elif not with_header:  # skip the header if not wanted
+                else:
+                    packet = bytearray(fifo_length)
+                    device.readinto(packet)
+                    if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
+                            and packet[0] != rx_filter):
+                        packet = None
+            if packet is not None:
+            #send ACK unless this was an ACK or a broadcast
+                if with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
+                            and (packet[0] != _RH_BROADCAST_ADDRESS):
+                    # delay before sending Ack to give receiver a chance to get ready
+                    if self.ack_delay is not None:
+                        time.sleep(self.ack_delay)
+                    #print('Sending ACK: ', [hex(x) for x in packet[0:4]])
+                    data = bytes("!", "UTF-8")
+                    self.send(data, tx_header=(packet[1], packet[0],
+                                               packet[2], packet[3]|_RH_FLAGS_ACK))
+                    if self.seen_ids[packet[1]] == packet[2]:
+                        packet = None
+                    else:
+                        self.seen_ids[packet[1]] = packet[2]
+                if not with_header and packet is not None:  # skip the header if not wanted
                     packet = packet[4:]
-
         # Listen again if necessary and return the result packet.
         if keep_listening:
             self.listen()
+        else:
+        # Enter idle mode to stop receiving other packets.
+            self.idle()
         return packet
