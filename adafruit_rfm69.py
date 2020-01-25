@@ -388,7 +388,20 @@ class RFM69:
             self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
                                                        # indicate a write.
             device.write(self._BUFFER, end=1)
-            device.write(buf, end=length)
+            device.write(buf, end=length) # send data
+
+    def _write_fifo_from(self, buf, length=None):
+        # Write a number of bytes to the transmit FIFO and taken from the
+        # provided buffer.  If no length is specified (the default) the entire
+        # buffer is written.
+        if length is None:
+            length = len(buf)
+        with self._device as device:
+            self._BUFFER[0] = (_REG_FIFO | 0x80) & 0xFF  # Set top bit to 1 to
+                                                       # indicate a write.
+            self._BUFFER[1] = length & 0xFF  # Set packt length
+            device.write(self._BUFFER, end=2) # send address and lenght)
+            device.write(buf, end=length) # send data
 
     def _write_u8(self, address, val):
         # Write a byte register to the chip.  Specify the 7-bit address and the
@@ -709,20 +722,15 @@ class RFM69:
         # pylint: enable=len-as-condition
         self.idle()  # Stop receiving to clear FIFO and keep it clear.
         # Fill the FIFO with a packet to send.
-        with self._device as device:
-            self._BUFFER[0] = (_REG_FIFO | 0x80)  # Set top bit to 1 to
-                                                  # indicate a write.
-            self._BUFFER[1] = (len(data) + 4) & 0xFF
-            # Add 4 bytes of headers to match RadioHead library.
-            # Just use the defaults for global broadcast to all receivers
-            # for now.
-            self._BUFFER[2] = tx_header[0] # Header: To
-            self._BUFFER[3] = tx_header[1] # Header: From
-            self._BUFFER[4] = tx_header[2] # Header: Id
-            self._BUFFER[5] = tx_header[3] # Header: Flags
-            device.write(self._BUFFER, end=6)
-            # Now send the payload.
-            device.write(data)
+        # Combine header and data to form payload
+        payload = bytearray(4)
+        payload[0] = tx_header[0]
+        payload[1] = tx_header[1]
+        payload[2] = tx_header[2]
+        payload[3] = tx_header[3]
+        payload = payload + data
+        # Write payload to transmit fifo
+        self._write_fifo_from(payload)
         # Turn on transmit mode to send out the packet.
         self.transmit()
         # Wait for packet sent interrupt with explicit polling (not ideal but
@@ -831,29 +839,22 @@ class RFM69:
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # Enter idle mode to stop receiving other packets.
-        #self.idle()
+        self.idle()
         if not timed_out:
             # Read the data from the FIFO.
-            with self._device as device:
-                self._BUFFER[0] = _REG_FIFO & 0x7F  # Strip out top bit to set 0
-                                                    # value (read).
-                device.write(self._BUFFER, end=1)
-                # Read the length of the FIFO.
-                device.readinto(self._BUFFER, end=1)
-                fifo_length = self._BUFFER[0]
-                # Handle if the received packet is too small to include the 4 byte
-                # RadioHead header--reject this packet and ignore it.
-                if fifo_length < 5:
-                    # Invalid packet, ignore it.  However finish reading the FIFO
-                    # to clear the packet.
-                    device.readinto(self._BUFFER, end=fifo_length)
+            # Read the length of the FIFO.
+            fifo_length = self._read_u8(_REG_FIFO)
+            # Handle if the received packet is too small to include the 4 byte
+            # RadioHead header and at least one byte of data --reject this packet and ignore it.
+            if fifo_length > 0: # read and clear the FIFO if anything in it
+                packet = bytearray(fifo_length)
+                self._read_into(_REG_FIFO, packet)
+            if fifo_length < 5:
+                packet = None
+            else:
+                if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
+                        and packet[0] != rx_filter):
                     packet = None
-                else:
-                    packet = bytearray(fifo_length)
-                    device.readinto(packet)
-                    if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
-                            and packet[0] != rx_filter):
-                        packet = None
             if packet is not None:
             #send ACK unless this was an ACK or a broadcast
                 if with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
