@@ -768,7 +768,6 @@ class RFM69:
         got_ack = False
         self.sequence_number = (self.sequence_number + 1)&0xff
         while not got_ack and retries_remaining:
-            #print("retries remaining ",retries_remaining)
             tx_to = tx_header[0]
             tx_from = tx_header[1]
             tx_id = self.sequence_number
@@ -791,10 +790,10 @@ class RFM69:
                         # check the ID
                         if ack_packet[2] == tx_id:
                             got_ack = True
-                            #print('Ack Received (raw header):', [hex(x) for x in ack_packet[0:4]])
                             break
             # pause before next retry -- random delay
-            time.sleep(ack_timeout)
+            if not got_ack:
+                time.sleep(ack_timeout)
             retries_remaining = retries_remaining - 1
         return got_ack
 
@@ -855,18 +854,17 @@ class RFM69:
                 if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
                         and packet[0] != rx_filter):
                     packet = None
-            if packet is not None:
-            #send ACK unless this was an ACK or a broadcast
-                if with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
+                #send ACK unless this was an ACK or a broadcast
+                elif with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
                             and (packet[0] != _RH_BROADCAST_ADDRESS):
                     # delay before sending Ack to give receiver a chance to get ready
                     if self.ack_delay is not None:
                         time.sleep(self.ack_delay)
-                    #print('Sending ACK: ', [hex(x) for x in packet[0:4]])
                     data = bytes("!", "UTF-8")
                     self.send(data, tx_header=(packet[1], packet[0],
                                                packet[2], packet[3]|_RH_FLAGS_ACK))
-                    if self.seen_ids[packet[1]] == packet[2]:
+                    #reject Retries if we have seen them before
+                    if (self.seen_ids[packet[1]] == packet[2]) and (packet[3]&_RH_FLAGS_RETRY):
                         packet = None
                     else:
                         self.seen_ids[packet[1]] = packet[2]
