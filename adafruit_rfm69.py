@@ -353,12 +353,18 @@ class RFM69:
         self.tx_power = 13
         # initialize ack timeout(seconds) and retries
         self.ack_timeout = .2
+        self.receive_timeout = .5
+        self.xmit_timeout = 2.
         self.ack_retries = 5
         self.ack_delay = None
         #initialize sequence number
         self.sequence_number = 0
         #initialize seen Ids list
         self.seen_ids = bytearray(256)
+        self.node = _RH_BROADCAST_ADDRESS
+        self.destination = _RH_BROADCAST_ADDRESS
+        self.identifier = 0
+        self.flags = 0
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
@@ -700,8 +706,8 @@ class RFM69:
         self._write_u8(_REG_FDEV_MSB, fdev >> 8)
         self._write_u8(_REG_FDEV_LSB, fdev & 0xFF)
 
-    def send(self, data, timeout=2., keep_listening=False,
-             tx_header=(_RH_BROADCAST_ADDRESS, _RH_BROADCAST_ADDRESS, 0, 0)):
+
+    def send(self, data, keep_listening=False, tx_header=None):
         """Send a string of data using the transmitter.
            You can only send 60 bytes at a time
            (limited by chip's FIFO size and appended headers).
@@ -718,16 +724,23 @@ class RFM69:
         # buffer be within an expected range of bounds.  Disable this check.
         # pylint: disable=len-as-condition
         assert 0 < len(data) <= 60
-        assert len(tx_header) == 4, "tx header must be 4-tuple (To,From,ID,Flags)"
+        if tx_header is not None:
+            assert len(tx_header) == 4, "tx header must be 4-tuple (To,From,ID,Flags)"
         # pylint: enable=len-as-condition
         self.idle()  # Stop receiving to clear FIFO and keep it clear.
         # Fill the FIFO with a packet to send.
         # Combine header and data to form payload
         payload = bytearray(4)
-        payload[0] = tx_header[0]
-        payload[1] = tx_header[1]
-        payload[2] = tx_header[2]
-        payload[3] = tx_header[3]
+        if tx_header is None:
+            payload[0] = self.destination
+            payload[1] = self.node
+            payload[2] = self.identifier
+            payload[3] = self.flags
+        else:
+            payload[0] = tx_header[0]
+            payload[1] = tx_header[1]
+            payload[2] = tx_header[2]
+            payload[3] = tx_header[3]
         payload = payload + data
         # Write payload to transmit fifo
         self._write_fifo_from(payload)
@@ -738,7 +751,7 @@ class RFM69:
         start = time.monotonic()
         timed_out = False
         while not timed_out and not self.packet_sent:
-            if (time.monotonic() - start) >= timeout:
+            if (time.monotonic() - start) >= self.xmit_timeout:
                 timed_out = True
         # Listen again if necessary and return the result packet.
         if keep_listening:
@@ -750,8 +763,7 @@ class RFM69:
             raise RuntimeError('Timeout during packet send')
 
 
-    def send_with_ack(self, data,
-                      tx_header=(_RH_BROADCAST_ADDRESS, _RH_BROADCAST_ADDRESS, 0, 0)):
+    def send_with_ack(self, data, tx_header=None):
         """Send a string of data using the transmitter.
            You can only send 60 bytes at a time
            (limited by chip's FIFO size and appended headers).
@@ -768,10 +780,16 @@ class RFM69:
         got_ack = False
         self.sequence_number = (self.sequence_number + 1)&0xff
         while not got_ack and retries_remaining:
-            tx_to = tx_header[0]
-            tx_from = tx_header[1]
-            tx_id = self.sequence_number
-            tx_flags = tx_header[3]
+            if tx_header is None:
+                tx_to = self.destination
+                tx_from = self.node
+                tx_id = self.sequence_number
+                tx_flags = self.flags
+            else:
+                tx_to = tx_header[0]
+                tx_from = tx_header[1]
+                tx_id = self.sequence_number
+                tx_flags = tx_header[3]
             if retries_remaining != self.ack_retries:
                 tx_flags |= _RH_FLAGS_RETRY
                 tx_flags |= ((self.ack_retries - retries_remaining)&0xf)
@@ -784,7 +802,7 @@ class RFM69:
             else:
                 # wait for a packet from our destination
                 # randomly adjust timeout
-                ack_packet = self.receive(timeout=ack_timeout, with_header=True, rx_filter=tx_from)
+                ack_packet = self.receive(timeout=ack_timeout, with_header=True)
                 if ack_packet is not None:
                     if ack_packet[3] & _RH_FLAGS_ACK:
                         # check the ID
@@ -797,32 +815,25 @@ class RFM69:
             retries_remaining = retries_remaining - 1
         return got_ack
 
-    #pylint: disable=too-many-arguments
     #pylint: disable=too-many-branches
-    def receive(self, timeout=0.5, keep_listening=True, with_header=False,
-                rx_filter=_RH_BROADCAST_ADDRESS, with_ack=False):
-        """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
-           seconds for a packet to be received and decoded. If a packet is found the payload bytes
+    def receive(self, keep_listening=True, with_ack=False, timeout=None, with_header=False):
+        """Wait to receive a packet from the receiver. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
-           reception). If timeout  is None then  it is not used ( for use with interrupts)
+           reception).
            If keep_listening is True (the default) the chip will immediately enter listening mode
            after reception of a packet, otherwise it will fall back to idle mode and ignore any
            future reception.
            A 4-byte header must be prepended to the data for compatibilty with the
            RadioHead library.
-           The header consists of a 4 bytes (To,From,ID,Flags). The default setting will accept
-           any  incomming packet and strip the header before returning the packet to the caller.
+           The header consists of a 4 bytes (To,From,ID,Flags). The default setting will  strip
+           the header before returning the packet to the caller.
            If with_header is True then the 4 byte header will be returned with the packet.
            The payload then begins at packet[4].
-           rx_fliter may be set to reject any "non-broadcast" packets that do not contain the
-           specfied "To" value in the header.
-           if rx_filter is set to 0xff (_RH_BROADCAST_ADDRESS) or if the  "To" field (packet[[0])
-           is equal to 0xff then the packet will be accepted and returned to the caller.
-           If rx_filter is not 0xff and packet[0] does not match rx_filter then
-           the packet is ignored and None is returned.
            If with_ack is True, send an ACK after receipt
         """
         timed_out = False
+        if timeout is None:
+            timeout = self.receive_timeout
         if timeout is not None:
             # Wait for the payload_ready interrupt.  This is not ideal and will
             # surely miss or overflow the FIFO when packets aren't read fast
@@ -851,8 +862,8 @@ class RFM69:
             if fifo_length < 5:
                 packet = None
             else:
-                if (rx_filter != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
-                        and packet[0] != rx_filter):
+                if (self.node != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
+                        and packet[0] != self.node):
                     packet = None
                 #send ACK unless this was an ACK or a broadcast
                 elif with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
