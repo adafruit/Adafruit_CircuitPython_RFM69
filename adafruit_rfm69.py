@@ -351,6 +351,7 @@ class RFM69:
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
+<<<<<<< HEAD
         # initialize ack timeout(seconds) and retries
         self.ack_timeout = .2
         self.receive_timeout = .5
@@ -365,6 +366,11 @@ class RFM69:
         self.destination = _RH_BROADCAST_ADDRESS
         self.identifier = 0
         self.flags = 0
+=======
+        # last RSSI reading
+        self.last_rssi = 0.
+
+>>>>>>> jerryn_rssi
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
@@ -848,6 +854,8 @@ class RFM69:
                     timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
+        # save RSSI
+        self.last_rssi = self.rssi
         # Enter idle mode to stop receiving other packets.
         self.idle()
         if not timed_out:

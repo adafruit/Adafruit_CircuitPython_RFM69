@@ -23,7 +23,7 @@ def rfm69_callback(rfm69_irq):
             # Print out the raw bytes of the packet:
             print('Received (raw bytes): {0}'.format(packet))
             print([hex(x) for x in packet])
-            print('RSSI: {0}'.format(rfm69.rssi))
+            print('RSSI: {0}'.format(rfm69.last_rssi))
 
 
 # Define radio parameters.
