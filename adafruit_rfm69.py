@@ -345,6 +345,8 @@ class RFM69:
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
+        # last RSSI reading
+        self.last_rssi = 0.
 
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
@@ -765,6 +767,8 @@ class RFM69:
                     timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
+        # save RSSI
+        self.last_rssi = self.rssi
         # Enter idle mode to stop receiving other packets.
         self.idle()
         if timed_out:
