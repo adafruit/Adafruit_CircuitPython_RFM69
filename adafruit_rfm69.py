@@ -352,7 +352,7 @@ class RFM69:
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
         # initialize ack timeout(seconds) and retries
-        self.ack_timeout = .2
+        self.ack_timeout = .5
         self.receive_timeout = .5
         self.xmit_timeout = 2.
         self.ack_retries = 5
@@ -367,7 +367,6 @@ class RFM69:
         self.flags = 0
         # last RSSI reading
         self.last_rssi = 0.
-
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
@@ -796,16 +795,13 @@ class RFM69:
             if retries_remaining != self.ack_retries:
                 tx_flags |= _RH_FLAGS_RETRY
                 tx_flags |= ((self.ack_retries - retries_remaining)&0xf)
-            # set up ack timeout now to minimize delay after sending packet
-            ack_timeout = self.ack_timeout + self.ack_timeout * random.random()
             self.send(data, tx_header=(tx_to, tx_from, tx_id, tx_flags), keep_listening=True)
             # Don't look for ACK from Broadcast message
             if tx_to == _RH_BROADCAST_ADDRESS:
                 got_ack = True
             else:
                 # wait for a packet from our destination
-                # randomly adjust timeout
-                ack_packet = self.receive(timeout=ack_timeout, with_header=True)
+                ack_packet = self.receive(timeout=self.ack_timeout, with_header=True)
                 if ack_packet is not None:
                     if ack_packet[3] & _RH_FLAGS_ACK:
                         # check the ID
@@ -814,7 +810,8 @@ class RFM69:
                             break
             # pause before next retry -- random delay
             if not got_ack:
-                time.sleep(ack_timeout)
+                # delay by random amount before next try
+                time.sleep(self.ack_timeout + self.ack_timeout * random.random())
             retries_remaining = retries_remaining - 1
         return got_ack
 
@@ -851,7 +848,7 @@ class RFM69:
                     timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
-        # save RSSI
+        # save last RSSI reading
         self.last_rssi = self.rssi
         # Enter idle mode to stop receiving other packets.
         self.idle()
