@@ -26,9 +26,6 @@
 CircuitPython RFM69 packet radio module. This supports basic RadioHead-compatible sending and
 receiving of packets with RFM69 series radios (433/915Mhz).
 
-.. note:: This does NOT support advanced RadioHead features like guaranteed delivery--only 'raw'
-    packets are currently supported.
-
 .. warning:: This is NOT for LoRa radios!
 
 .. note:: This is a 'best effort' at receiving data using pure Python code--there is not interrupt
@@ -36,7 +33,7 @@ receiving of packets with RFM69 series radios (433/915Mhz).
     You will have the most luck using this in simple low bandwidth scenarios like sending and
     receiving a 60 byte packet at a time--don't try to receive many kilobytes of data at a time!
 
-* Author(s): Tony DiCola
+* Author(s): Tony DiCola, Jerry Needell
 
 Implementation Notes
 --------------------
@@ -182,16 +179,13 @@ class RFM69:
     encoding, 250kbit/s bitrate, and 250khz frequency deviation. To change this requires explicitly
     setting the radio's bitrate and encoding register bits. Read the datasheet and study the init
     function to see an example of this--advanced users only! Advanced RadioHead features like
-    address/node specific packets or guaranteed delivery are not supported. Only simple broadcast
-    of packets to all listening radios is supported. Features like addressing and guaranteed
-    delivery need to be implemented at an application level.
+    address/node specific packets or "reliable datagram" delivery are supported however due to the
+    limitations noted, "reliable datagram" is still subject to missed packets but with it, the
+    sender is notified if a packe has potentially been missed.
     """
 
-    # Global buffer to hold data sent and received with the chip.  This must be
-    # at least as large as the FIFO on the chip (66 bytes)!  Keep this on the
-    # class level to ensure only one copy ever exists (with the trade-off that
-    # this is NOT re-entrant or thread safe code by design).
-    _BUFFER = bytearray(66)
+    # Global buffer for SPI commands.
+    _BUFFER = bytearray(4)
 
     class _RegisterBits:
         # Class to simplify access to the many configuration bits avaialable
@@ -351,21 +345,26 @@ class RFM69:
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
-        # initialize ack timeout(seconds) and retries
-        self.ack_timeout = .5
+        #initialize timeouts and delays delays
+        self.ack_wait = .5
         self.receive_timeout = .5
         self.xmit_timeout = 2.
         self.ack_retries = 5
         self.ack_delay = None
-        #initialize sequence number
+        #initialize sequence number counter for reliabe datagram mode
         self.sequence_number = 0
-        #initialize seen Ids list
+        #create seen Ids list
         self.seen_ids = bytearray(256)
+        #initialize packet header
+        #node address - default is broadcast
         self.node = _RH_BROADCAST_ADDRESS
+        #destination address - default is broadcast
         self.destination = _RH_BROADCAST_ADDRESS
+        #ID - contains seq count for reliable datagram mode
         self.identifier = 0
+        #flags - identifies ack/reetry packet for reliable datagram mode
         self.flags = 0
-        # last RSSI reading
+        #initialize last RSSI reading
         self.last_rssi = 0.
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
@@ -714,9 +713,9 @@ class RFM69:
            You can only send 60 bytes at a time
            (limited by chip's FIFO size and appended headers).
            This appends a 4 byte header to be compatible with the RadioHead library.
-           The tx_header defaults to using the Broadcast addresses. It may be overidden
-           by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
-           The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
+           The tx_header defaults to using the initialized attributes:
+              (destination,node,identifier,flags)
+           It may be overidden by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
            The keep_listening argument should be set to True if you want to start listening
            automatically after the packet is sent. The default setting is False.
         """
@@ -733,12 +732,12 @@ class RFM69:
         # Fill the FIFO with a packet to send.
         # Combine header and data to form payload
         payload = bytearray(4)
-        if tx_header is None:
+        if tx_header is None: #use attributes
             payload[0] = self.destination
             payload[1] = self.node
             payload[2] = self.identifier
             payload[3] = self.flags
-        else:
+        else: #use header passed as argument
             payload[0] = tx_header[0]
             payload[1] = tx_header[1]
             payload[2] = tx_header[2]
@@ -755,25 +754,20 @@ class RFM69:
         while not timed_out and not self.packet_sent:
             if (time.monotonic() - start) >= self.xmit_timeout:
                 timed_out = True
-        # Listen again if necessary and return the result packet.
+        # Listen again if requested.
         if keep_listening:
             self.listen()
-        else:
-        # Enter idle mode to stop receiving other packets.
+        else:  # Enter idle mode to stop receiving other packets.
             self.idle()
         if timed_out:
             raise RuntimeError('Timeout during packet send')
 
 
-    def send_with_ack(self, data, tx_header=None):
-        """Send a string of data using the transmitter.
-           You can only send 60 bytes at a time
-           (limited by chip's FIFO size and appended headers).
-           This appends a 4 byte header to be compatible with the RadioHead library.
-           The tx_header defaults to using the Broadcast addresses. It may be overidden
-           by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
-           retries ...
-           withACK ...
+    def send_with_ack(self, data):
+        """Reliabe Datagram mode:
+           Send a packet with data and wait for an ACK response.
+           The packet header is automatically generated.
+           If enabled, the packet tranmsiion will be retried on failure
         """
         if self.ack_retries:
             retries_remaining = self.ack_retries
@@ -782,37 +776,29 @@ class RFM69:
         got_ack = False
         self.sequence_number = (self.sequence_number + 1)&0xff
         while not got_ack and retries_remaining:
-            if tx_header is None:
-                tx_to = self.destination
-                tx_from = self.node
-                tx_id = self.sequence_number
-                tx_flags = self.flags
-            else:
-                tx_to = tx_header[0]
-                tx_from = tx_header[1]
-                tx_id = self.sequence_number
-                tx_flags = tx_header[3]
-            if retries_remaining != self.ack_retries:
-                tx_flags |= _RH_FLAGS_RETRY
-                tx_flags |= ((self.ack_retries - retries_remaining)&0xf)
-            self.send(data, tx_header=(tx_to, tx_from, tx_id, tx_flags), keep_listening=True)
+            self.identifier = self.sequence_number
+            self.send(data, keep_listening=True)
             # Don't look for ACK from Broadcast message
-            if tx_to == _RH_BROADCAST_ADDRESS:
+            if self.destination == _RH_BROADCAST_ADDRESS:
                 got_ack = True
             else:
                 # wait for a packet from our destination
-                ack_packet = self.receive(timeout=self.ack_timeout, with_header=True)
+                ack_packet = self.receive(timeout=self.ack_wait, with_header=True)
                 if ack_packet is not None:
                     if ack_packet[3] & _RH_FLAGS_ACK:
                         # check the ID
-                        if ack_packet[2] == tx_id:
+                        if ack_packet[2] == self.identifier:
                             got_ack = True
                             break
             # pause before next retry -- random delay
             if not got_ack:
                 # delay by random amount before next try
-                time.sleep(self.ack_timeout + self.ack_timeout * random.random())
+                time.sleep(self.ack_wait + self.ack_wait * random.random())
             retries_remaining = retries_remaining - 1
+            # set flags in packet header
+            self.flags |= _RH_FLAGS_RETRY
+            self.flags |= ((self.ack_retries - retries_remaining)&0xf)
+        self.flags = 0 # clear flags
         return got_ack
 
     #pylint: disable=too-many-branches
@@ -823,19 +809,19 @@ class RFM69:
            If keep_listening is True (the default) the chip will immediately enter listening mode
            after reception of a packet, otherwise it will fall back to idle mode and ignore any
            future reception.
-           A 4-byte header must be prepended to the data for compatibilty with the
+           All packets must have a 4 byte header A 4-byte header for compatibilty with the
            RadioHead library.
-           The header consists of a 4 bytes (To,From,ID,Flags). The default setting will  strip
+           The header consists of 4 bytes (To,From,ID,Flags). The default setting will  strip
            the header before returning the packet to the caller.
            If with_header is True then the 4 byte header will be returned with the packet.
            The payload then begins at packet[4].
-           If with_ack is True, send an ACK after receipt
+           If with_ack is True, send an ACK after receipt (Reliable Datagram mode)
         """
         timed_out = False
         if timeout is None:
             timeout = self.receive_timeout
         if timeout is not None:
-            # Wait for the payload_ready interrupt.  This is not ideal and will
+            # Wait for the payload_ready signal.  This is not ideal and will
             # surely miss or overflow the FIFO when packets aren't read fast
             # enough, however it's the best that can be done from Python without
             # interrupt supports.
@@ -873,13 +859,14 @@ class RFM69:
                     # delay before sending Ack to give receiver a chance to get ready
                     if self.ack_delay is not None:
                         time.sleep(self.ack_delay)
+                    #send ACK packet to sender
                     data = bytes("!", "UTF-8")
                     self.send(data, tx_header=(packet[1], packet[0],
                                                packet[2], packet[3]|_RH_FLAGS_ACK))
-                    #reject Retries if we have seen them before
+                    #reject Retries if we have seen this idetifier from this source before
                     if (self.seen_ids[packet[1]] == packet[2]) and (packet[3]&_RH_FLAGS_RETRY):
                         packet = None
-                    else:
+                    else: # save the packet identifier for this source
                         self.seen_ids[packet[1]] = packet[2]
                 if not with_header and packet is not None:  # skip the header if not wanted
                     packet = packet[4:]
