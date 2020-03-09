@@ -714,7 +714,7 @@ class RFM69:
            (limited by chip's FIFO size and appended headers).
            This appends a 4 byte header to be compatible with the RadioHead library.
            The tx_header defaults to using the initialized attributes:
-              (destination,node,identifier,flags)
+           (destination,node,identifier,flags)
            It may be overidden by specifying a 4-tuple of bytes containing (To,From,ID,Flags)
            The keep_listening argument should be set to True if you want to start listening
            automatically after the packet is sent. The default setting is False.
