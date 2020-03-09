@@ -795,9 +795,8 @@ class RFM69:
                 # delay by random amount before next try
                 time.sleep(self.ack_wait + self.ack_wait * random.random())
             retries_remaining = retries_remaining - 1
-            # set flags in packet header
+            # set retry flag in packet header
             self.flags |= _RH_FLAGS_RETRY
-            self.flags |= ((self.ack_retries - retries_remaining)&0xf)
         self.flags = 0 # clear flags
         return got_ack
 
