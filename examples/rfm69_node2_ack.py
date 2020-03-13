@@ -3,6 +3,7 @@
 #
 import time
 import board
+import busio
 import digitalio
 import adafruit_rfm69
 
@@ -16,8 +17,7 @@ CS    = digitalio.DigitalInOut(board.CE1)
 RESET = digitalio.DigitalInOut(board.D25)
 
 # Initialize SPI bus.
-spi = board.SPI()
-
+spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
 # Initialze RFM radio
 rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
 
