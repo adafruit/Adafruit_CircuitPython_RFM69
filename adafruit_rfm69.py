@@ -727,8 +727,6 @@ class RFM69:
         else:
         # Enter idle mode to stop receiving other packets.
             self.idle()
-        if timed_out:
-            raise RuntimeError('Timeout during packet send')
 
     def receive(self, timeout=0.5, keep_listening=True, with_header=False,
                 rx_filter=_RH_BROADCAST_ADDRESS):
