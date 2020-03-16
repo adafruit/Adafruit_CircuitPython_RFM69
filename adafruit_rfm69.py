@@ -728,6 +728,8 @@ class RFM69:
         # Enter idle mode to stop receiving other packets.
             self.idle()
 
+        return not timed_out
+
     def receive(self, timeout=0.5, keep_listening=True, with_header=False,
                 rx_filter=_RH_BROADCAST_ADDRESS):
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
