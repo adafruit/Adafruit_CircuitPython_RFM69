@@ -687,6 +687,8 @@ class RFM69:
            The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
            The keep_listening argument should be set to True if you want to start listening
            automatically after the packet is sent. The default setting is False.
+
+           Returns: True if success or False if the send timed out.
         """
         # Disable pylint warning to not use length as a check for zero.
         # This is a puzzling warning as the below code is clearly the most
