@@ -750,8 +750,13 @@ class RFM69:
 
         return not timed_out
 
-    def receive(self, timeout=0.5, keep_listening=True, with_header=False,
-                rx_filter=_RH_BROADCAST_ADDRESS):
+    def receive(
+        self,
+        timeout=0.5,
+        keep_listening=True,
+        with_header=False,
+        rx_filter=_RH_BROADCAST_ADDRESS,
+    ):
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
