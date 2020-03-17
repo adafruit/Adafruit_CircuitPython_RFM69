@@ -705,6 +705,8 @@ class RFM69:
            The timeout is just to prevent a hang (arbitrarily set to 2 seconds)
            The keep_listening argument should be set to True if you want to start listening
            automatically after the packet is sent. The default setting is False.
+
+           Returns: True if success or False if the send timed out.
         """
         # Disable pylint warning to not use length as a check for zero.
         # This is a puzzling warning as the below code is clearly the most
@@ -745,16 +747,11 @@ class RFM69:
         else:
             # Enter idle mode to stop receiving other packets.
             self.idle()
-        if timed_out:
-            raise RuntimeError("Timeout during packet send")
 
-    def receive(
-        self,
-        timeout=0.5,
-        keep_listening=True,
-        with_header=False,
-        rx_filter=_RH_BROADCAST_ADDRESS,
-    ):
+        return not timed_out
+
+    def receive(self, timeout=0.5, keep_listening=True, with_header=False,
+                rx_filter=_RH_BROADCAST_ADDRESS):
         """Wait to receive a packet from the receiver. Will wait for up to timeout_s amount of
            seconds for a packet to be received and decoded. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
