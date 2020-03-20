@@ -4,6 +4,7 @@
 import board
 import busio
 import digitalio
+
 # Import the SSD1306 module.
 import adafruit_ssd1306
 import adafruit_rfm69
@@ -36,16 +37,15 @@ width = display.width
 height = display.height
 
 
-
 # set the time interval (seconds) for sending packets
-transmit_interval=10
+transmit_interval = 10
 
 # Define radio parameters.
-RADIO_FREQ_MHZ   = 915.0  # Frequency of the radio in Mhz. Must match your
-                          # module! Can be a value like 915.0, 433.0, etc.
+RADIO_FREQ_MHZ = 915.0  # Frequency of the radio in Mhz. Must match your
+# module! Can be a value like 915.0, 433.0, etc.
 
 # Define pins connected to the chip.
-CS    = digitalio.DigitalInOut(board.CE1)
+CS = digitalio.DigitalInOut(board.CE1)
 RESET = digitalio.DigitalInOut(board.D25)
 
 # Initialize SPI bus.
@@ -53,31 +53,35 @@ spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
 
 # Initialze RFM radio
 
-    # Attempt to set up the RFM69 Module
+# Attempt to set up the RFM69 Module
 try:
     rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
-    display.text('RFM69: Detected', 0, 0, 1)
+    display.text("RFM69: Detected", 0, 0, 1)
 except RuntimeError:
     # Thrown on version mismatch
-    display.text('RFM69: ERROR', 0, 0, 1)
+    display.text("RFM69: ERROR", 0, 0, 1)
 
 display.show()
 
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
-rfm69.encryption_key = b'\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08'
+rfm69.encryption_key = (
+    b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
+)
 
 # set node addresses
 rfm69.node = 1
 rfm69.destination = 2
 # initialize counter
 counter = 0
-#send a broadcast message from my_node with ID = counter
-rfm69.send(bytes("Startup message {} from node {}".format(counter, rfm69.node),"UTF-8"))
+# send a broadcast message from my_node with ID = counter
+rfm69.send(
+    bytes("Startup message {} from node {}".format(counter, rfm69.node), "UTF-8")
+)
 
 # Wait to receive packets.
-print('Waiting for packets...')
+print("Waiting for packets...")
 button_pressed = None
 while True:
     # Look for a new packet: only accept if addresses to my_node
@@ -86,33 +90,39 @@ while True:
     if packet is not None:
         # Received a packet!
         # Print out the raw bytes of the packet:
-        print('Received (raw header):', [hex(x) for x in packet[0:4]])
-        print('Received (raw payload): {0}'.format(packet[4:]))
-        print('Received RSSI: {0}'.format(rfm69.last_rssi))
+        print("Received (raw header):", [hex(x) for x in packet[0:4]])
+        print("Received (raw payload): {0}".format(packet[4:]))
+        print("Received RSSI: {0}".format(rfm69.last_rssi))
     # Check buttons
     if not btnA.value:
         button_pressed = "A"
         # Button A Pressed
         display.fill(0)
-        display.text('AAA', width-85, height-7, 1)
+        display.text("AAA", width - 85, height - 7, 1)
         display.show()
     if not btnB.value:
         button_pressed = "B"
         # Button B Pressed
         display.fill(0)
-        display.text('BBB', width-75, height-7, 1)
+        display.text("BBB", width - 75, height - 7, 1)
         display.show()
     if not btnC.value:
         button_pressed = "C"
         # Button C Pressed
         display.fill(0)
-        display.text('CCC', width-65, height-7, 1)
+        display.text("CCC", width - 65, height - 7, 1)
         display.show()
         # send reading after any button pressed
     if button_pressed is not None:
         counter = counter + 1
-        #send a  mesage to destination_node from my_node
-        rfm69.send(bytes("message number {} from node {} button {}".format(counter,rfm69.node,
-                                                                           button_pressed),"UTF-8"),
-                   keep_listening=True)
+        # send a  mesage to destination_node from my_node
+        rfm69.send(
+            bytes(
+                "message number {} from node {} button {}".format(
+                    counter, rfm69.node, button_pressed
+                ),
+                "UTF-8",
+            ),
+            keep_listening=True,
+        )
         button_pressed = None

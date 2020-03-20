@@ -358,27 +358,28 @@ class RFM69:
         self.encryption_key = encryption_key
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
-        #initialize timeouts and delays delays
-        self.ack_wait = .5
-        self.receive_timeout = .5
-        self.xmit_timeout = 2.
+        # initialize timeouts and delays delays
+        self.ack_wait = 0.5
+        self.receive_timeout = 0.5
+        self.xmit_timeout = 2.0
         self.ack_retries = 5
         self.ack_delay = None
-        #initialize sequence number counter for reliabe datagram mode
+        # initialize sequence number counter for reliabe datagram mode
         self.sequence_number = 0
-        #create seen Ids list
+        # create seen Ids list
         self.seen_ids = bytearray(256)
-        #initialize packet header
-        #node address - default is broadcast
+        # initialize packet header
+        # node address - default is broadcast
         self.node = _RH_BROADCAST_ADDRESS
-        #destination address - default is broadcast
+        # destination address - default is broadcast
         self.destination = _RH_BROADCAST_ADDRESS
-        #ID - contains seq count for reliable datagram mode
+        # ID - contains seq count for reliable datagram mode
         self.identifier = 0
-        #flags - identifies ack/reetry packet for reliable datagram mode
+        # flags - identifies ack/reetry packet for reliable datagram mode
         self.flags = 0
-        #initialize last RSSI reading
+        # initialize last RSSI reading
         self.last_rssi = 0.0
+
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
@@ -408,7 +409,7 @@ class RFM69:
             self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
             # indicate a write.
             device.write(self._BUFFER, end=1)
-            device.write(buf, end=length) # send data
+            device.write(buf, end=length)  # send data
 
     def _write_fifo_from(self, buf, length=None):
         # Write a number of bytes to the transmit FIFO and taken from the
@@ -418,10 +419,10 @@ class RFM69:
             length = len(buf)
         with self._device as device:
             self._BUFFER[0] = (_REG_FIFO | 0x80) & 0xFF  # Set top bit to 1 to
-                                                       # indicate a write.
+            # indicate a write.
             self._BUFFER[1] = length & 0xFF  # Set packt length
-            device.write(self._BUFFER, end=2) # send address and lenght)
-            device.write(buf, end=length) # send data
+            device.write(self._BUFFER, end=2)  # send address and lenght)
+            device.write(buf, end=length)  # send data
 
     def _write_u8(self, address, val):
         # Write a byte register to the chip.  Specify the 7-bit address and the
@@ -746,12 +747,12 @@ class RFM69:
         # Fill the FIFO with a packet to send.
         # Combine header and data to form payload
         payload = bytearray(4)
-        if tx_header is None: #use attributes
+        if tx_header is None:  # use attributes
             payload[0] = self.destination
             payload[1] = self.node
             payload[2] = self.identifier
             payload[3] = self.flags
-        else: #use header passed as argument
+        else:  # use header passed as argument
             payload[0] = tx_header[0]
             payload[1] = tx_header[1]
             payload[2] = tx_header[2]
@@ -786,7 +787,7 @@ class RFM69:
         else:
             retries_remaining = 1
         got_ack = False
-        self.sequence_number = (self.sequence_number + 1)&0xff
+        self.sequence_number = (self.sequence_number + 1) & 0xFF
         while not got_ack and retries_remaining:
             self.identifier = self.sequence_number
             self.send(data, keep_listening=True)
@@ -809,11 +810,13 @@ class RFM69:
             retries_remaining = retries_remaining - 1
             # set retry flag in packet header
             self.flags |= _RH_FLAGS_RETRY
-        self.flags = 0 # clear flags
+        self.flags = 0  # clear flags
         return got_ack
 
-    #pylint: disable=too-many-branches
-    def receive(self, keep_listening=True, with_ack=False, timeout=None, with_header=False):
+    # pylint: disable=too-many-branches
+    def receive(
+        self, keep_listening=True, with_ack=False, timeout=None, with_header=False
+    ):
         """Wait to receive a packet from the receiver. If a packet is found the payload bytes
            are returned, otherwise None is returned (which indicates the timeout elapsed with no
            reception).
@@ -854,36 +857,53 @@ class RFM69:
             fifo_length = self._read_u8(_REG_FIFO)
             # Handle if the received packet is too small to include the 4 byte
             # RadioHead header and at least one byte of data --reject this packet and ignore it.
-            if fifo_length > 0: # read and clear the FIFO if anything in it
+            if fifo_length > 0:  # read and clear the FIFO if anything in it
                 packet = bytearray(fifo_length)
                 self._read_into(_REG_FIFO, packet)
             if fifo_length < 5:
                 packet = None
             else:
-                if (self.node != _RH_BROADCAST_ADDRESS and packet[0] != _RH_BROADCAST_ADDRESS
-                        and packet[0] != self.node):
+                if (
+                    self.node != _RH_BROADCAST_ADDRESS
+                    and packet[0] != _RH_BROADCAST_ADDRESS
+                    and packet[0] != self.node
+                ):
                     packet = None
-                #send ACK unless this was an ACK or a broadcast
-                elif with_ack and ((packet[3]&_RH_FLAGS_ACK) == 0) \
-                            and (packet[0] != _RH_BROADCAST_ADDRESS):
+                # send ACK unless this was an ACK or a broadcast
+                elif (
+                    with_ack
+                    and ((packet[3] & _RH_FLAGS_ACK) == 0)
+                    and (packet[0] != _RH_BROADCAST_ADDRESS)
+                ):
                     # delay before sending Ack to give receiver a chance to get ready
                     if self.ack_delay is not None:
                         time.sleep(self.ack_delay)
-                    #send ACK packet to sender
+                    # send ACK packet to sender
                     data = bytes("!", "UTF-8")
-                    self.send(data, tx_header=(packet[1], packet[0],
-                                               packet[2], packet[3]|_RH_FLAGS_ACK))
-                    #reject Retries if we have seen this idetifier from this source before
-                    if (self.seen_ids[packet[1]] == packet[2]) and (packet[3]&_RH_FLAGS_RETRY):
+                    self.send(
+                        data,
+                        tx_header=(
+                            packet[1],
+                            packet[0],
+                            packet[2],
+                            packet[3] | _RH_FLAGS_ACK,
+                        ),
+                    )
+                    # reject Retries if we have seen this idetifier from this source before
+                    if (self.seen_ids[packet[1]] == packet[2]) and (
+                        packet[3] & _RH_FLAGS_RETRY
+                    ):
                         packet = None
-                    else: # save the packet identifier for this source
+                    else:  # save the packet identifier for this source
                         self.seen_ids[packet[1]] = packet[2]
-                if not with_header and packet is not None:  # skip the header if not wanted
+                if (
+                    not with_header and packet is not None
+                ):  # skip the header if not wanted
                     packet = packet[4:]
         # Listen again if necessary and return the result packet.
         if keep_listening:
             self.listen()
         else:
-        # Enter idle mode to stop receiving other packets.
+            # Enter idle mode to stop receiving other packets.
             self.idle()
         return packet
