@@ -48,8 +48,8 @@ while True:
         print("Received (raw header):", [hex(x) for x in packet[0:4]])
         print("Received (raw payload): {0}".format(packet[4:]))
         print("RSSI: {0}".format(rfm69.last_rssi))
-        # send response .5 sec afterafter any packet received
-        time.sleep(0.5)
+        # send response 2 sec after any packet received
+        time.sleep(2)
         counter += 1
         # send a  mesage to destination_node from my_node
         if not rfm69.send_with_ack(
