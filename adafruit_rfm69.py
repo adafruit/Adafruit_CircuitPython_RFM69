@@ -839,7 +839,7 @@ class RFM69:
            If keep_listening is True (the default) the chip will immediately enter listening mode
            after reception of a packet, otherwise it will fall back to idle mode and ignore any
            future reception.
-           All packets must have a 4 byte header A 4-byte header for compatibilty with the
+           All packets must have a 4 byte header for compatibilty with the
            RadioHead library.
            The header consists of 4 bytes (To,From,ID,Flags). The default setting will  strip
            the header before returning the packet to the caller.
