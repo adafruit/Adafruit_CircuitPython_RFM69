@@ -310,19 +310,19 @@ class RFM69:
         """
         # initialize timeouts and delays delays
         self.ack_wait = 0.5
-        """Sets the delay time before attemting a retry after not receiving an AC"""
+        """The delay time before attempting a retry after not receiving an ACK"""
         self.receive_timeout = 0.5
-        """Sets the amount of time to poll for a received packet.
+        """The amount of time to poll for a received packet.
            If no packet is received, the returned packet will be None
         """
         self.xmit_timeout = 2.0
-        """Sets the amount of time to wait for the HW to transmit the packet.
+        """The amount of time to wait for the HW to transmit the packet.
            This is mainly used to prevent a hang due to a HW issue
         """
         self.ack_retries = 5
-        """Sets the number of ACK retries before reporting a failure."""
+        """The number of ACK retries before reporting a failure."""
         self.ack_delay = None
-        """Sets the delay time before attemting to send an ACK.
+        """The delay time before attemting to send an ACK.
            If ACKs are being missed try setting this to .1 or .2.
         """
         # initialize sequence number counter for reliabe datagram mode
@@ -332,25 +332,26 @@ class RFM69:
         # initialize packet header
         # node address - default is broadcast
         self.node = _RH_BROADCAST_ADDRESS
-        """First byte of the RadioHead header.
-           Set the default address of this Node. (0-255).
+        """The default address of this Node. (0-255).
            If not 255 (0xff) then only packets address to this node will be accepted.
+           First byte of the RadioHead header.
         """
         # destination address - default is broadcast
         self.destination = _RH_BROADCAST_ADDRESS
-        """Second byte of the RadioHead header.
-           Set the default destinationaaddress for packet transmissions. (0-255).
+        """The default destination address for packet transmissions. (0-255).
            If 255 (0xff) then any receiing node should accept the packet.
+           Second byte of the RadioHead header.
         """
         # ID - contains seq count for reliable datagram mode
         self.identifier = 0
-        """Third byte of the RadioHead header.
-           Automatically set to the sequence number when send_with_ack() used.
+        """Automatically set to the sequence number when send_with_ack() used.
+           Third byte of the RadioHead header.
         """
         # flags - identifies ack/reetry packet for reliable datagram mode
         self.flags = 0
-        """Fourth byte of the RadioHead header. (Typically set by driver)
-           Upper 4 bits reserved, lower 4 bits may be used to pass information.
+        """Upper 4 bits reserved for use by Reliable Datagram Mode.
+           Lower 4 bits may be used to pass information.
+           Fourth byte of the RadioHead header.
         """
 
     def _configure_radio(self):
