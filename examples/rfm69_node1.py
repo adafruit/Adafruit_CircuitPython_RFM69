@@ -9,7 +9,7 @@ import adafruit_rfm69
 
 
 # set the time interval (seconds) for sending packets
-transmit_interval = 5
+transmit_interval = 10
 
 # Define radio parameters.
 RADIO_FREQ_MHZ = 915.0  # Frequency of the radio in Mhz. Must match your

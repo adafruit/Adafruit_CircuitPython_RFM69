@@ -339,7 +339,7 @@ class RFM69:
         # destination address - default is broadcast
         self.destination = _RH_BROADCAST_ADDRESS
         """The default destination address for packet transmissions. (0-255).
-           If 255 (0xff) then any receiing node should accept the packet.
+           If 255 (0xff) then any receiving node should accept the packet.
            Second byte of the RadioHead header.
         """
         # ID - contains seq count for reliable datagram mode
@@ -795,7 +795,7 @@ class RFM69:
         """Reliable Datagram mode:
            Send a packet with data and wait for an ACK response.
            The packet header is automatically generated.
-           If enabled, the packet tranmsiion will be retried on failure
+           If enabled, the packet transmission will be retried on failure
         """
         if self.ack_retries:
             retries_remaining = self.ack_retries
