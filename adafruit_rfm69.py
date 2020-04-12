@@ -378,8 +378,6 @@ class RFM69:
         # Set transmit power to 13 dBm, a safe value any module supports.
         self.tx_power = 13
 
-
-
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
     def _read_into(self, address, buf, length=None):
