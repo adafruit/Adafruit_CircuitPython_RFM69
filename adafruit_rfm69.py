@@ -305,7 +305,7 @@ class RFM69:
         # initialize last RSSI reading
         self.last_rssi = 0.0
         """The RSSI of the last received packet. Stored when the packet was received.
-           This instataneous RSSI value may not be accurate once the
+           This instantaneous RSSI value may not be accurate once the
            operating mode has been changed.
         """
         # initialize timeouts and delays delays
