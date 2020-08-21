@@ -301,8 +301,6 @@ class RFM69:
         # by default.  Users with advanced knowledge can manually reconfigure
         # for any other mode (consulting the datasheet is absolutely
         # necessary!).
-        self.data_mode = 0b00  # Packet mode
-        self.modulation_type = 0b00  # FSK modulation
         self.modulation_shaping = 0b01  # Gaussian filter, BT=1.0
         self.bitrate = 250000  # 250kbs
         self.frequency_deviation = 250000  # 250khz
