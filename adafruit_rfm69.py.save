@@ -368,8 +368,8 @@ class RFM69:
            Lower 4 bits may be used to pass information.
            Fourth byte of the RadioHead header.
         """
-
     # pylint: enable=too-many-statements
+
 
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
