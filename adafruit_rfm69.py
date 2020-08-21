@@ -253,12 +253,9 @@ class RFM69:
     crc_auto_clear_off = _RegisterBits(_REG_PACKET_CONFIG1, offset=3, bits=1)
     address_filter = _RegisterBits(_REG_PACKET_CONFIG1, offset=1, bits=2)
     mode_ready = _RegisterBits(_REG_IRQ_FLAGS1, offset=7)
-    rx_ready = _RegisterBits(_REG_IRQ_FLAGS1, offset=6)
-    tx_ready = _RegisterBits(_REG_IRQ_FLAGS1, offset=5)
     dio_0_mapping = _RegisterBits(_REG_DIO_MAPPING1, offset=6, bits=2)
-    packet_sent = _RegisterBits(_REG_IRQ_FLAGS2, offset=3)
-    payload_ready = _RegisterBits(_REG_IRQ_FLAGS2, offset=2)
 
+    # pylint: disable=too-many-statements
     def __init__(
         self,
         spi,
@@ -300,8 +297,26 @@ class RFM69:
         self.preamble_length = preamble_length  # Set the preamble length.
         self.frequency_mhz = frequency  # Set frequency.
         self.encryption_key = encryption_key  # Set encryption key.
-        # set radio configuration parameters
-        self._configure_radio()
+        # Configure modulation for RadioHead library GFSK_Rb250Fd250 mode
+        # by default.  Users with advanced knowledge can manually reconfigure
+        # for any other mode (consulting the datasheet is absolutely
+        # necessary!).
+        self.data_mode = 0b00  # Packet mode
+        self.modulation_type = 0b00  # FSK modulation
+        self.modulation_shaping = 0b01  # Gaussian filter, BT=1.0
+        self.bitrate = 250000  # 250kbs
+        self.frequency_deviation = 250000  # 250khz
+        self.rx_bw_dcc_freq = 0b111  # RxBw register = 0xE0
+        self.rx_bw_mantissa = 0b00
+        self.rx_bw_exponent = 0b000
+        self.afc_bw_dcc_freq = 0b111  # AfcBw register = 0xE0
+        self.afc_bw_mantissa = 0b00
+        self.afc_bw_exponent = 0b000
+        self.packet_format = 1  # Variable length.
+        self.dc_free = 0b10  # Whitening
+        # Set transmit power to 13 dBm, a safe value any module supports.
+        self.tx_power = 13
+
         # initialize last RSSI reading
         self.last_rssi = 0.0
         """The RSSI of the last received packet. Stored when the packet was received.
@@ -353,30 +368,8 @@ class RFM69:
            Lower 4 bits may be used to pass information.
            Fourth byte of the RadioHead header.
         """
+    # pylint: enable=too-many-statements
 
-    def _configure_radio(self):
-        # Configure modulation for RadioHead library GFSK_Rb250Fd250 mode
-        # by default.  Users with advanced knowledge can manually reconfigure
-        # for any other mode (consulting the datasheet is absolutely
-        # necessary!).
-        self.data_mode = 0b00  # Packet mode
-        self.modulation_type = 0b00  # FSK modulation
-        self.modulation_shaping = 0b01  # Gaussian filter, BT=1.0
-        self.bitrate = 250000  # 250kbs
-        self.frequency_deviation = 250000  # 250khz
-        self.rx_bw_dcc_freq = 0b111  # RxBw register = 0xE0
-        self.rx_bw_mantissa = 0b00
-        self.rx_bw_exponent = 0b000
-        self.afc_bw_dcc_freq = 0b111  # AfcBw register = 0xE0
-        self.afc_bw_mantissa = 0b00
-        self.afc_bw_exponent = 0b000
-        self.packet_format = 1  # Variable length.
-        self.dc_free = 0b10  # Whitening
-        self.crc_on = 1  # CRC enabled
-        self.crc_auto_clear = 0  # Clear FIFO on CRC fail
-        self.address_filtering = 0b00  # No address filtering
-        # Set transmit power to 13 dBm, a safe value any module supports.
-        self.tx_power = 13
 
     # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
@@ -722,6 +715,14 @@ class RFM69:
         self._write_u8(_REG_FDEV_MSB, fdev >> 8)
         self._write_u8(_REG_FDEV_LSB, fdev & 0xFF)
 
+    def packet_sent(self):
+        """Transmit status"""
+        return (self._read_u8(_REG_IRQ_FLAGS2) & 0x8) >> 3
+
+    def payload_ready(self):
+        """Receive status"""
+        return (self._read_u8(_REG_IRQ_FLAGS2) & 0x4) >> 2
+
     def send(
         self,
         data,
@@ -781,7 +782,7 @@ class RFM69:
         # best that can be done right now without interrupts).
         start = time.monotonic()
         timed_out = False
-        while not timed_out and not self.packet_sent:
+        while not timed_out and not self.packet_sent():
             if (time.monotonic() - start) >= self.xmit_timeout:
                 timed_out = True
         # Listen again if requested.
@@ -858,7 +859,7 @@ class RFM69:
             self.listen()
             start = time.monotonic()
             timed_out = False
-            while not timed_out and not self.payload_ready:
+            while not timed_out and not self.payload_ready():
                 if (time.monotonic() - start) >= timeout:
                     timed_out = True
         # Payload ready is set, a packet is in the FIFO.
@@ -893,10 +894,9 @@ class RFM69:
                     # delay before sending Ack to give receiver a chance to get ready
                     if self.ack_delay is not None:
                         time.sleep(self.ack_delay)
-                    # send ACK packet to sender
-                    data = bytes("!", "UTF-8")
+                    # send ACK packet to sender (data is b'!')
                     self.send(
-                        data,
+                        b"!",
                         destination=packet[1],
                         node=packet[0],
                         identifier=packet[2],
