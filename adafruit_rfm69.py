@@ -267,7 +267,7 @@ class RFM69:
         preamble_length=4,
         encryption_key=None,
         high_power=True,
-        baudrate=5000000
+        baudrate=1000000
     ):
         self._tx_power = 13
         self.high_power = high_power
@@ -398,19 +398,6 @@ class RFM69:
             self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
             # indicate a write.
             device.write(self._BUFFER, end=1)
-            device.write(buf, end=length)  # send data
-
-    def _write_fifo_from(self, buf, length=None):
-        # Write a number of bytes to the transmit FIFO and taken from the
-        # provided buffer.  If no length is specified (the default) the entire
-        # buffer is written.
-        if length is None:
-            length = len(buf)
-        with self._device as device:
-            self._BUFFER[0] = (_REG_FIFO | 0x80) & 0xFF  # Set top bit to 1 to
-            # indicate a write.
-            self._BUFFER[1] = length & 0xFF  # Set packt length
-            device.write(self._BUFFER, end=2)  # send address and lenght)
             device.write(buf, end=length)  # send data
 
     def _write_u8(self, address, val):
@@ -754,26 +741,27 @@ class RFM69:
         self.idle()  # Stop receiving to clear FIFO and keep it clear.
         # Fill the FIFO with a packet to send.
         # Combine header and data to form payload
-        payload = bytearray(4)
+        payload = bytearray(5)
+        payload[0] = 4 + len(data)
         if destination is None:  # use attribute
-            payload[0] = self.destination
+            payload[1] = self.destination
         else:  # use kwarg
-            payload[0] = destination
+            payload[1] = destination
         if node is None:  # use attribute
-            payload[1] = self.node
+            payload[2] = self.node
         else:  # use kwarg
-            payload[1] = node
+            payload[2] = node
         if identifier is None:  # use attribute
-            payload[2] = self.identifier
+            payload[3] = self.identifier
         else:  # use kwarg
-            payload[2] = identifier
+            payload[3] = identifier
         if flags is None:  # use attribute
-            payload[3] = self.flags
+            payload[4] = self.flags
         else:  # use kwarg
-            payload[3] = flags
+            payload[4] = flags
         payload = payload + data
         # Write payload to transmit fifo
-        self._write_fifo_from(payload)
+        self._write_from(_REG_FIFO, payload)
         # Turn on transmit mode to send out the packet.
         self.transmit()
         # Wait for packet sent interrupt with explicit polling (not ideal but
@@ -873,7 +861,8 @@ class RFM69:
             # RadioHead header and at least one byte of data --reject this packet and ignore it.
             if fifo_length > 0:  # read and clear the FIFO if anything in it
                 packet = bytearray(fifo_length)
-                self._read_into(_REG_FIFO, packet)
+                self._read_into(_REG_FIFO, packet, fifo_length)
+
             if fifo_length < 5:
                 packet = None
             else:
