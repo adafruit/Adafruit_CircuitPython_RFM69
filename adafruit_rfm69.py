@@ -267,7 +267,7 @@ class RFM69:
         preamble_length=4,
         encryption_key=None,
         high_power=True,
-        baudrate=1000000
+        baudrate=2000000
     ):
         self._tx_power = 13
         self.high_power = high_power
