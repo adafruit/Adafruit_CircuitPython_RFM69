@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
+# SPDX-License-Identifier: MIT
+
 # Simple example to send a message and then wait indefinitely for messages
 # to be received.  This uses the default RadioHead compatible GFSK_Rb250_Fd250
 # modulation and packet format for the radio.
