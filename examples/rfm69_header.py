@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
+# SPDX-FileCopyrightText: 2020 Jerry Needell for Adafruit Industries
 # SPDX-License-Identifier: MIT
 
 # Example to display raw packets including header
-# Author: Jerry Needell
+
 #
 import board
 import busio

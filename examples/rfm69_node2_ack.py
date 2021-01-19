@@ -1,9 +1,8 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
+# SPDX-FileCopyrightText: 2020 Jerry Needell for Adafruit Industries
 # SPDX-License-Identifier: MIT
 
 # Example to receive addressed packed with ACK and send a response
-# Author: Jerry Needell
-#
+
 import time
 import board
 import busio

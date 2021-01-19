@@ -1,9 +1,8 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
+# SPDX-FileCopyrightText: 2020 Jerry Needell for Adafruit Industries
 # SPDX-License-Identifier: MIT
 
 # Example to send a packet periodically between addressed nodes
-# Author: Jerry Needell
-#
+
 import time
 import board
 import busio
