@@ -477,7 +477,7 @@ class RFM69:
         start = time.monotonic()
         while not self.mode_ready:
             if (time.monotonic() - start) >= 1:
-                raise RuntimeError('Operation mode failed to set.')
+                raise RuntimeError("Operation mode failed to set.")
 
     @property
     def sync_word(self):
