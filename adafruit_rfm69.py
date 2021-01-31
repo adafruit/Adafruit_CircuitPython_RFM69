@@ -475,7 +475,8 @@ class RFM69:
         self._write_u8(_REG_OP_MODE, op_mode)
         # Wait for mode to change by polling interrupt bit.
         while not self.mode_ready:
-            pass
+            if (time.monotonic() - start) >= 1:
+                raise RuntimeError('Operation mode failed to set.')
 
     @property
     def sync_word(self):
