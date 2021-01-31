@@ -474,6 +474,7 @@ class RFM69:
         op_mode |= val << 2
         self._write_u8(_REG_OP_MODE, op_mode)
         # Wait for mode to change by polling interrupt bit.
+        start = time.monotonic()
         while not self.mode_ready:
             if (time.monotonic() - start) >= 1:
                 raise RuntimeError('Operation mode failed to set.')
