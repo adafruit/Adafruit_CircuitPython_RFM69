@@ -78,6 +78,11 @@ To set it to 1000000 use :
     rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, RADIO_FREQ_MHZ,baudrate=1000000)
 
 
+Documentation
+=============
+
+API documentation for this library can be found on `Read the Docs <https://circuitpython.readthedocs.io/projects/rfm69/en/latest/>`_.
+
 Contributing
 ============
 
