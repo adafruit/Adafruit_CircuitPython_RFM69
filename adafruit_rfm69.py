@@ -47,13 +47,20 @@ Implementation Notes
   https://github.com/adafruit/circuitpython/releases
 * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 """
-import time
 import random
-
+import time
+import adafruit_bus_device.spi_device as spidev
 from micropython import const
 
-import adafruit_bus_device.spi_device as spidev
+HAS_SUPERVISOR = False
 
+try:
+    import supervisor
+
+    if hasattr(supervisor, "ticks_ms"):
+        HAS_SUPERVISOR = True
+except ImportError:
+    pass
 
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_RFM69.git"
@@ -116,12 +123,25 @@ STANDBY_MODE = 0b001
 FS_MODE = 0b010
 TX_MODE = 0b011
 RX_MODE = 0b100
+# supervisor.ticks_ms() contants
+_TICKS_PERIOD = const(1 << 29)
+_TICKS_MAX = const(_TICKS_PERIOD - 1)
+_TICKS_HALFPERIOD = const(_TICKS_PERIOD // 2)
 
 # Disable the silly too many instance members warning.  Pylint has no knowledge
 # of the context and is merely guessing at the proper amount of members.  This
 # is a complex chip which requires exposing many attributes and state.  Disable
 # the warning to work around the error.
 # pylint: disable=too-many-instance-attributes
+
+
+def ticks_diff(ticks1, ticks2):
+    """Compute the signed difference between two ticks values
+    assuming that they are within 2**28 ticks
+    """
+    diff = (ticks1 - ticks2) & _TICKS_MAX
+    diff = ((diff + _TICKS_HALFPERIOD) & _TICKS_MAX) - _TICKS_HALFPERIOD
+    return diff
 
 
 class RFM69:
@@ -474,10 +494,16 @@ class RFM69:
         op_mode |= val << 2
         self._write_u8(_REG_OP_MODE, op_mode)
         # Wait for mode to change by polling interrupt bit.
-        start = time.monotonic()
-        while not self.mode_ready:
-            if (time.monotonic() - start) >= 1:
-                raise TimeoutError("Operation Mode failed to set.")
+        if HAS_SUPERVISOR:
+            start = supervisor.ticks_ms()
+            while not self.mode_ready:
+                if ticks_diff(supervisor.ticks_ms(), start) >= 1000:
+                    raise TimeoutError("Operation Mode failed to set.")
+        else:
+            start = time.monotonic()
+            while not self.mode_ready:
+                if time.monotonic() - start >= 1:
+                    raise TimeoutError("Operation Mode failed to set.")
 
     @property
     def sync_word(self):
@@ -693,6 +719,7 @@ class RFM69:
         """Receive status"""
         return (self._read_u8(_REG_IRQ_FLAGS2) & 0x4) >> 2
 
+    # pylint: disable=too-many-branches
     def send(
         self,
         data,
@@ -751,11 +778,17 @@ class RFM69:
         self.transmit()
         # Wait for packet sent interrupt with explicit polling (not ideal but
         # best that can be done right now without interrupts).
-        start = time.monotonic()
         timed_out = False
-        while not timed_out and not self.packet_sent():
-            if (time.monotonic() - start) >= self.xmit_timeout:
-                timed_out = True
+        if HAS_SUPERVISOR:
+            start = supervisor.ticks_ms()
+            while not timed_out and not self.packet_sent():
+                if ticks_diff(supervisor.ticks_ms(), start) >= self.xmit_timeout * 1000:
+                    timed_out = True
+        else:
+            start = time.monotonic()
+            while not timed_out and not self.packet_sent():
+                if time.monotonic() - start >= self.xmit_timeout:
+                    timed_out = True
         # Listen again if requested.
         if keep_listening:
             self.listen()
@@ -800,7 +833,6 @@ class RFM69:
         self.flags = 0  # clear flags
         return got_ack
 
-    # pylint: disable=too-many-branches
     def receive(
         self, *, keep_listening=True, with_ack=False, timeout=None, with_header=False
     ):
@@ -828,11 +860,17 @@ class RFM69:
             # interrupt supports.
             # Make sure we are listening for packets.
             self.listen()
-            start = time.monotonic()
             timed_out = False
-            while not timed_out and not self.payload_ready():
-                if (time.monotonic() - start) >= timeout:
-                    timed_out = True
+            if HAS_SUPERVISOR:
+                start = supervisor.ticks_ms()
+                while not timed_out and not self.payload_ready():
+                    if ticks_diff(supervisor.ticks_ms(), start) >= timeout * 1000:
+                        timed_out = True
+            else:
+                start = time.monotonic()
+                while not timed_out and not self.payload_ready():
+                    if time.monotonic() - start >= timeout:
+                        timed_out = True
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # save last RSSI reading
