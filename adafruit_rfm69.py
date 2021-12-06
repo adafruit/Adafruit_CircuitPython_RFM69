@@ -57,8 +57,7 @@ HAS_SUPERVISOR = False
 try:
     import supervisor
 
-    if hasattr(supervisor, "ticks_ms"):
-        HAS_SUPERVISOR = True
+    HAS_SUPERVISOR = hasattr(supervisor, "ticks_ms")
 except ImportError:
     pass
 
@@ -142,6 +141,22 @@ def ticks_diff(ticks1, ticks2):
     diff = (ticks1 - ticks2) & _TICKS_MAX
     diff = ((diff + _TICKS_HALFPERIOD) & _TICKS_MAX) - _TICKS_HALFPERIOD
     return diff
+
+
+def check_timeout(flag, limit):
+    """test for timeout waiting for specified flag"""
+    timed_out = False
+    if HAS_SUPERVISOR:
+        start = supervisor.ticks_ms()
+        while not timed_out and not flag():
+            if ticks_diff(supervisor.ticks_ms(), start) >= limit * 1000:
+                timed_out = True
+    else:
+        start = time.monotonic()
+        while not timed_out and not flag():
+            if time.monotonic() - start >= limit:
+                timed_out = True
+    return timed_out
 
 
 class RFM69:
@@ -778,17 +793,7 @@ class RFM69:
         self.transmit()
         # Wait for packet sent interrupt with explicit polling (not ideal but
         # best that can be done right now without interrupts).
-        timed_out = False
-        if HAS_SUPERVISOR:
-            start = supervisor.ticks_ms()
-            while not timed_out and not self.packet_sent():
-                if ticks_diff(supervisor.ticks_ms(), start) >= self.xmit_timeout * 1000:
-                    timed_out = True
-        else:
-            start = time.monotonic()
-            while not timed_out and not self.packet_sent():
-                if time.monotonic() - start >= self.xmit_timeout:
-                    timed_out = True
+        timed_out = check_timeout(self.packet_sent, self.xmit_timeout)
         # Listen again if requested.
         if keep_listening:
             self.listen()
@@ -860,17 +865,7 @@ class RFM69:
             # interrupt supports.
             # Make sure we are listening for packets.
             self.listen()
-            timed_out = False
-            if HAS_SUPERVISOR:
-                start = supervisor.ticks_ms()
-                while not timed_out and not self.payload_ready():
-                    if ticks_diff(supervisor.ticks_ms(), start) >= timeout * 1000:
-                        timed_out = True
-            else:
-                start = time.monotonic()
-                while not timed_out and not self.payload_ready():
-                    if time.monotonic() - start >= timeout:
-                        timed_out = True
+            timed_out = check_timeout(self.payload_ready, timeout)
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # save last RSSI reading
