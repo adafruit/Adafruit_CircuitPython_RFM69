@@ -14,6 +14,10 @@ Introduction
     :target: https://github.com/adafruit/Adafruit_CircuitPython_RFM69/actions/
     :alt: Build Status
 
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+    :alt: Code Style: Black
+
 CircuitPython RFM69 packet radio module.  This supports basic RadioHead-compatible sending and
 receiving of packets with RFM69 series radios (433/915Mhz).
 
