@@ -62,7 +62,7 @@ except ImportError:
     pass
 
 try:
-    from typing import Optional, Type
+    from typing import Callable, Optional, Type
     from circuitpython_typing import WriteableBuffer, ReadableBuffer
     from digitalio import DigitalInOut
     from busio import SPI
@@ -151,7 +151,7 @@ def ticks_diff(ticks1: int, ticks2: int) -> int:
     return diff
 
 
-def check_timeout(flag: int, limit: float) -> bool:
+def check_timeout(flag: Callable, limit: float) -> bool:
     """test for timeout waiting for specified flag"""
     timed_out = False
     if HAS_SUPERVISOR:
@@ -738,11 +738,11 @@ class RFM69:
         self._write_u8(_REG_FDEV_MSB, fdev >> 8)
         self._write_u8(_REG_FDEV_LSB, fdev & 0xFF)
 
-    def packet_sent(self) -> int:
+    def packet_sent(self) -> bool:
         """Transmit status"""
         return (self._read_u8(_REG_IRQ_FLAGS2) & 0x8) >> 3
 
-    def payload_ready(self) -> int:
+    def payload_ready(self) -> bool:
         """Receive status"""
         return (self._read_u8(_REG_IRQ_FLAGS2) & 0x4) >> 2
 
