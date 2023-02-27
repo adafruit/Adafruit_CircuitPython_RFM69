@@ -141,6 +141,9 @@ _TICKS_HALFPERIOD = const(_TICKS_PERIOD // 2)
 # the warning to work around the error.
 # pylint: disable=too-many-instance-attributes
 
+# disable another pylint nit-pick
+# pylint: disable=too-many-public-methods
+
 
 def ticks_diff(ticks1: int, ticks2: int) -> int:
     """Compute the signed difference between two ticks values
@@ -306,9 +309,7 @@ class RFM69:
         # Check the version of the chip.
         version = self._read_u8(_REG_VERSION)
         if version != 0x24:
-            raise RuntimeError(
-                "Failed to find RFM69 with expected version, check wiring!"
-            )
+            raise RuntimeError("Invalid RFM69 version, check wiring!")
         self.idle()  # Enter idle state.
         # Setup the chip in a similar way to the RadioHead RFM69 library.
         # Set FIFO TX condition to not empty and the default FIFO threshold to 15.
@@ -447,12 +448,16 @@ class RFM69:
         self._reset.value = False
         time.sleep(0.005)  # 5 ms
 
+    def set_boost(self, setting: int) -> None:
+        """Set preamp boost if needed."""
+        if self._tx_power >= 18:
+            self._write_u8(_REG_TEST_PA1, setting)
+            self._write_u8(_REG_TEST_PA2, setting)
+
     def idle(self) -> None:
         """Enter idle standby mode (switching off high power amplifiers if necessary)."""
         # Like RadioHead library, turn off high power boost if enabled.
-        if self._tx_power >= 18:
-            self._write_u8(_REG_TEST_PA1, _TEST_PA1_NORMAL)
-            self._write_u8(_REG_TEST_PA2, _TEST_PA2_NORMAL)
+        self.set_boost(_TEST_PA1_NORMAL)
         self.operation_mode = STANDBY_MODE
 
     def sleep(self) -> None:
@@ -464,9 +469,7 @@ class RFM69:
         and retrieve packets as they're available.
         """
         # Like RadioHead library, turn off high power boost if enabled.
-        if self._tx_power >= 18:
-            self._write_u8(_REG_TEST_PA1, _TEST_PA1_NORMAL)
-            self._write_u8(_REG_TEST_PA2, _TEST_PA2_NORMAL)
+        self.set_boost(_TEST_PA1_NORMAL)
         # Enable payload ready interrupt for D0 line.
         self.dio_0_mapping = 0b01
         # Enter RX mode (will clear FIFO!).
@@ -478,9 +481,7 @@ class RFM69:
         :py:func:`send` instead.
         """
         # Like RadioHead library, turn on high power boost if enabled.
-        if self._tx_power >= 18:
-            self._write_u8(_REG_TEST_PA1, _TEST_PA1_BOOST)
-            self._write_u8(_REG_TEST_PA2, _TEST_PA2_BOOST)
+        self.set_boost(_TEST_PA1_BOOST)
         # Enable packet sent interrupt for D0 line.
         self.dio_0_mapping = 0b00
         # Enter TX mode (will clear FIFO!).
@@ -645,42 +646,39 @@ class RFM69:
         pa0 = self.pa_0_on
         pa1 = self.pa_1_on
         pa2 = self.pa_2_on
+        current_output_power = self.output_power
         if pa0 and not pa1 and not pa2:
             # -18 to 13 dBm range
-            return -18 + self.output_power
+            return -18 + current_output_power
         if not pa0 and pa1 and not pa2:
             # -2 to 13 dBm range
-            return -18 + self.output_power
+            return -18 + current_output_power
         if not pa0 and pa1 and pa2 and not self.high_power:
             # 2 to 17 dBm range
-            return -14 + self.output_power
+            return -14 + current_output_power
         if not pa0 and pa1 and pa2 and self.high_power:
             # 5 to 20 dBm range
-            return -11 + self.output_power
-        raise RuntimeError("Power amplifiers in unknown state!")
+            return -11 + current_output_power
+        raise RuntimeError("Power amps state unknown!")
 
     @tx_power.setter
     def tx_power(self, val: float):
         val = int(val)
         # Determine power amplifier and output power values depending on
         # high power state and requested power.
-        pa_0_on = 0
-        pa_1_on = 0
-        pa_2_on = 0
+        pa_0_on = pa_1_on = pa_2_on = 0
         output_power = 0
         if self.high_power:
             # Handle high power mode.
             assert -2 <= val <= 20
+            pa_1_on = 1
             if val <= 13:
-                pa_1_on = 1
                 output_power = val + 18
             elif 13 < val <= 17:
-                pa_1_on = 1
                 pa_2_on = 1
                 output_power = val + 14
             else:  # power >= 18 dBm
                 # Note this also needs PA boost enabled separately!
-                pa_1_on = 1
                 pa_2_on = 1
                 output_power = val + 11
         else:
