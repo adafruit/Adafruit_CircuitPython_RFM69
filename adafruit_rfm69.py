@@ -49,17 +49,9 @@ Implementation Notes
 """
 import random
 import time
+import supervisor
 import adafruit_bus_device.spi_device as spidev
 from micropython import const
-
-HAS_SUPERVISOR = False
-
-try:
-    import supervisor
-
-    HAS_SUPERVISOR = hasattr(supervisor, "ticks_ms")
-except ImportError:
-    pass
 
 try:
     from typing import Callable, Optional, Type
@@ -130,7 +122,7 @@ STANDBY_MODE = 0b001
 FS_MODE = 0b010
 TX_MODE = 0b011
 RX_MODE = 0b100
-# supervisor.ticks_ms() contants
+# supervisor.ticks_ms() constants
 _TICKS_PERIOD = const(1 << 29)
 _TICKS_MAX = const(_TICKS_PERIOD - 1)
 _TICKS_HALFPERIOD = const(_TICKS_PERIOD // 2)
@@ -154,16 +146,10 @@ def ticks_diff(ticks1: int, ticks2: int) -> int:
 def check_timeout(flag: Callable, limit: float) -> bool:
     """test for timeout waiting for specified flag"""
     timed_out = False
-    if HAS_SUPERVISOR:
-        start = supervisor.ticks_ms()
-        while not timed_out and not flag():
-            if ticks_diff(supervisor.ticks_ms(), start) >= limit * 1000:
-                timed_out = True
-    else:
-        start = time.monotonic()
-        while not timed_out and not flag():
-            if time.monotonic() - start >= limit:
-                timed_out = True
+    start = supervisor.ticks_ms()
+    while not timed_out and not flag():
+        if ticks_diff(supervisor.ticks_ms(), start) >= limit * 1000:
+            timed_out = True
     return timed_out
 
 
@@ -521,16 +507,10 @@ class RFM69:
         op_mode |= val << 2
         self._write_u8(_REG_OP_MODE, op_mode)
         # Wait for mode to change by polling interrupt bit.
-        if HAS_SUPERVISOR:
-            start = supervisor.ticks_ms()
-            while not self.mode_ready:
-                if ticks_diff(supervisor.ticks_ms(), start) >= 1000:
-                    raise TimeoutError("Operation Mode failed to set.")
-        else:
-            start = time.monotonic()
-            while not self.mode_ready:
-                if time.monotonic() - start >= 1:
-                    raise TimeoutError("Operation Mode failed to set.")
+        start = supervisor.ticks_ms()
+        while not self.mode_ready:
+            if ticks_diff(supervisor.ticks_ms(), start) >= 1000:
+                raise TimeoutError("Operation Mode failed to set.")
 
     @property
     def sync_word(self) -> bytearray:
