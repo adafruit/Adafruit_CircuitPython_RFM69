@@ -12,6 +12,7 @@ import digitalio
 import RPi.GPIO as io
 import adafruit_rfm69
 
+
 # setup interrupt callback function
 def rfm69_callback(rfm69_irq):
     global packet_received  # pylint: disable=global-statement
