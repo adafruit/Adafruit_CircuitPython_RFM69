@@ -23,17 +23,19 @@ receiving of packets with RFM69 series radios (433/915Mhz).
 
 .. warning:: This is NOT for LoRa radios!
 
-.. note:: This is a 'best effort' at receiving data using pure Python code--there is not interrupt
-    support so you might lose packets if they're sent too quickly for the board to process them.
-    You will have the most luck using this in simple low bandwidth scenarios like sending and
-    receiving a 60 byte packet at a time--don't try to receive many kilobytes of data at a time!
+.. note:: For reliable transmissions, use aio_send_with_ack and aio_recv_with_ack.
+    With ACKs enabled, observed effective throughput of 14-28kbps with bitrates of 38-250kbps!
+    Tested on ESP32-S3
 
 Dependencies
 =============
 This driver depends on:
 
 * `Adafruit CircuitPython <https://github.com/adafruit/circuitpython>`_
+* `Asyncio <https://github.com/adafruit/Adafruit_CircuitPython_asyncio>`_
 * `Bus Device <https://github.com/adafruit/Adafruit_CircuitPython_BusDevice>`_
+* `Ticks <https://github.com/adafruit/Adafruit_CircuitPython_Ticks>`_
+
 
 Please ensure all dependencies are available on the CircuitPython filesystem.
 This is easily achieved by downloading
@@ -79,7 +81,8 @@ To set it to 1000000 use :
 .. code-block:: python
 
     # Initialze RFM radio
-    rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, RADIO_FREQ_MHZ,baudrate=1000000)
+    spi_device = adafruit_rfm69.RFM69.spi_device(spi, CS, baudrate=1000000)
+    rfm9x = adafruit_rfm69.RFM69(spi_device, IRQ, RESET, RADIO_FREQ_MHZ)
 
 
 Documentation

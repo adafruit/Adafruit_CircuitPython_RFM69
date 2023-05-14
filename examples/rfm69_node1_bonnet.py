@@ -39,25 +39,44 @@ width = display.width
 height = display.height
 
 
-# set the time interval (seconds) for sending packets
-transmit_interval = 10
-
 # Define radio parameters.
 RADIO_FREQ_MHZ = 915.0  # Frequency of the radio in Mhz. Must match your
 # module! Can be a value like 915.0, 433.0, etc.
 
 # Define pins connected to the chip.
-CS = digitalio.DigitalInOut(board.CE1)
-RESET = digitalio.DigitalInOut(board.D25)
+RFM69_IRQ = board.D9
+RFM69_CS = board.CE1
+RFM69_RESET = board.D25
 
-# Initialize SPI bus.
-spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+
+def print_packet(packet):
+    if not packet:
+        return
+
+    # Received a packet!
+    # Print out the raw bytes of the packet:
+    print(f"Received (dest): {hex(packet.dest)}")
+    print(f"Received (src): {hex(packet.src)}")
+    print(f"Received (sequence_number): {hex(packet.sequence_number)}")
+    print(f"Received (flags): {hex(packet.flags)}")
+
+    print(f"Received (raw payload): {packet.data}")
+    print(f"RSSI: {packet.rssi}")
+    print(f"Time: {packet.time}")
+
+
+# Initialize SPI device.
+in_spi = board.SPI()
+in_spi_device = adafruit_rfm69.RFM69.spi_device(in_spi, RFM69_CS)
 
 # Initialze RFM radio
 
+
 # Attempt to set up the RFM69 Module
 try:
-    rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
+    rfm69_client = adafruit_rfm69.RFM69(
+        in_spi_device, RFM69_IRQ, RFM69_RESET, RADIO_FREQ_MHZ
+    )
     display.text("RFM69: Detected", 0, 0, 1)
 except RuntimeError:
     # Thrown on version mismatch
@@ -68,18 +87,19 @@ display.show()
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
-rfm69.encryption_key = (
+rfm69_client.set_encryption_key(
     b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
 )
 
 # set node addresses
-rfm69.node = 1
-rfm69.destination = 2
+rfm69_client.address = 1
+destination = 2
 # initialize counter
 counter = 0
 # send a broadcast message from my_node with ID = counter
-rfm69.send(
-    bytes("Startup message {} from node {}".format(counter, rfm69.node), "UTF-8")
+rfm69_client.send(
+    destination,
+    bytes(f"Startup message {counter} from node {rfm69_client.address}", "UTF-8"),
 )
 
 # Wait to receive packets.
@@ -87,14 +107,12 @@ print("Waiting for packets...")
 button_pressed = None
 while True:
     # Look for a new packet: only accept if addresses to my_node
-    packet = rfm69.receive(with_header=True)
+    rx_packet = rfm69_client.recv()
     # If no packet was received during the timeout then None is returned.
-    if packet is not None:
+    if rx_packet is not None:
         # Received a packet!
         # Print out the raw bytes of the packet:
-        print("Received (raw header):", [hex(x) for x in packet[0:4]])
-        print("Received (raw payload): {0}".format(packet[4:]))
-        print("Received RSSI: {0}".format(rfm69.last_rssi))
+        print_packet(rx_packet)
     # Check buttons
     if not btnA.value:
         button_pressed = "A"
@@ -118,13 +136,11 @@ while True:
     if button_pressed is not None:
         counter = counter + 1
         # send a  mesage to destination_node from my_node
-        rfm69.send(
+        rfm69_client.send(
+            destination,
             bytes(
-                "message number {} from node {} button {}".format(
-                    counter, rfm69.node, button_pressed
-                ),
+                f"msg {counter} from node {rfm69_client.address} button {button_pressed}",
                 "UTF-8",
             ),
-            keep_listening=True,
         )
         button_pressed = None
