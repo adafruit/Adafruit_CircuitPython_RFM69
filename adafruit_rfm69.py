@@ -86,6 +86,7 @@ _REG_FRF_MID = const(0x08)
 _REG_FRF_LSB = const(0x09)
 _REG_VERSION = const(0x10)
 _REG_PA_LEVEL = const(0x11)
+_REG_OCP = const(0x13)
 _REG_RX_BW = const(0x19)
 _REG_AFC_BW = const(0x1A)
 _REG_RSSI_VALUE = const(0x24)
@@ -110,6 +111,8 @@ _TEST_PA1_NORMAL = const(0x55)
 _TEST_PA1_BOOST = const(0x5D)
 _TEST_PA2_NORMAL = const(0x70)
 _TEST_PA2_BOOST = const(0x7C)
+_OCP_NORMAL = const(0x1A)
+_OCP_HIGH_POWER = const(0x0F)
 
 # The crystal oscillator frequency and frequency synthesizer step size.
 # See the datasheet for details of this calculation.
@@ -285,6 +288,7 @@ class RFM69:
     dio_0_mapping = _RegisterBits(_REG_DIO_MAPPING1, offset=6, bits=2)
 
     # pylint: disable=too-many-statements
+    # pylint: disable=too-many-arguments
     def __init__(  # pylint: disable=invalid-name
         self,
         spi: SPI,
@@ -448,16 +452,17 @@ class RFM69:
         self._reset.value = False
         time.sleep(0.005)  # 5 ms
 
-    def set_boost(self, setting: int) -> None:
-        """Set preamp boost if needed."""
-        if self._tx_power >= 18:
-            self._write_u8(_REG_TEST_PA1, setting)
-            self._write_u8(_REG_TEST_PA2, setting)
+    def disable_boost(self) -> None:
+        """Disable preamp boost."""
+        if self.high_power:
+            self._write_u8(_REG_TEST_PA1, _TEST_PA1_NORMAL)
+            self._write_u8(_REG_TEST_PA2, _TEST_PA2_NORMAL)
+            self._write_u8(_REG_OCP, _OCP_NORMAL)
 
     def idle(self) -> None:
         """Enter idle standby mode (switching off high power amplifiers if necessary)."""
         # Like RadioHead library, turn off high power boost if enabled.
-        self.set_boost(_TEST_PA1_NORMAL)
+        self.disable_boost()
         self.operation_mode = STANDBY_MODE
 
     def sleep(self) -> None:
@@ -469,7 +474,7 @@ class RFM69:
         and retrieve packets as they're available.
         """
         # Like RadioHead library, turn off high power boost if enabled.
-        self.set_boost(_TEST_PA1_NORMAL)
+        self.disable_boost()
         # Enable payload ready interrupt for D0 line.
         self.dio_0_mapping = 0b01
         # Enter RX mode (will clear FIFO!).
@@ -480,8 +485,11 @@ class RFM69:
         entering transmit mode and more.  For generating and transmitting a packet of data use
         :py:func:`send` instead.
         """
-        # Like RadioHead library, turn on high power boost if enabled.
-        self.set_boost(_TEST_PA1_BOOST)
+        # Like RadioHead library, turn on high power boost if needed.
+        if self.high_power and (self._tx_power >= 18):
+            self._write_u8(_REG_TEST_PA1, _TEST_PA1_BOOST)
+            self._write_u8(_REG_TEST_PA2, _TEST_PA2_BOOST)
+            self._write_u8(_REG_OCP, _OCP_HIGH_POWER)
         # Enable packet sent interrupt for D0 line.
         self.dio_0_mapping = 0b00
         # Enter TX mode (will clear FIFO!).
