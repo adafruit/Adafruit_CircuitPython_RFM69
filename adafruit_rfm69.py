@@ -661,10 +661,10 @@ class RFM69:
         if not pa0 and pa1 and not pa2:
             # -2 to 13 dBm range
             return -18 + current_output_power
-        if not pa0 and pa1 and pa2 and self.high_power and self.tx_power < 18:
+        if not pa0 and pa1 and pa2 and self.high_power and self._tx_power < 18:
             # 2 to 17 dBm range
             return -14 + current_output_power
-        if not pa0 and pa1 and pa2 and self.high_power and self.tx_power >= 18:
+        if not pa0 and pa1 and pa2 and self.high_power and self._tx_power >= 18:
             # 5 to 20 dBm range
             return -11 + current_output_power
         raise RuntimeError("Power amps state unknown!")
