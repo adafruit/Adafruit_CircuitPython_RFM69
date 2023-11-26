@@ -320,9 +320,6 @@ class RFM69:
         self._write_u8(_REG_FIFO_THRESH, 0b10001111)
         # Configure low beta off.
         self._write_u8(_REG_TEST_DAGC, 0x30)
-        # Disable boost.
-        self._write_u8(_REG_TEST_PA1, _TEST_PA1_NORMAL)
-        self._write_u8(_REG_TEST_PA2, _TEST_PA2_NORMAL)
         # Set the syncronization word.
         self.sync_word = sync_word
         self.preamble_length = preamble_length  # Set the preamble length.
