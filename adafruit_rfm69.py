@@ -312,7 +312,7 @@ class RFM69:
         self.reset()  # Reset the chip.
         # Check the version of the chip.
         version = self._read_u8(_REG_VERSION)
-        if version not in [0x23, 0x24]:
+        if version not in (0x23, 0x24):
             raise RuntimeError("Invalid RFM69 version, check wiring!")
         self.idle()  # Enter idle state.
         # Setup the chip in a similar way to the RadioHead RFM69 library.
