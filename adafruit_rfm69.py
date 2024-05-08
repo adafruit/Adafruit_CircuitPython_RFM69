@@ -212,7 +212,7 @@ class RFM69:
     function to see an example of this--advanced users only! Advanced RadioHead features like
     address/node specific packets or "reliable datagram" delivery are supported however due to the
     limitations noted, "reliable datagram" is still subject to missed packets but with it, the
-    sender is notified if a packe has potentially been missed.
+    sender is notified if a packet has potentially been missed.
     """
 
     # Global buffer for SPI commands.
@@ -702,7 +702,7 @@ class RFM69:
     @property
     def rssi(self) -> float:
         """The received strength indicator (in dBm).
-        May be inaccuate if not read immediatey. last_rssi contains the value read immediately
+        May be inaccurate if not read immediately. last_rssi contains the value read immediately
         receipt of the last packet.
         """
         # Read RSSI register and convert to value using formula in datasheet.
