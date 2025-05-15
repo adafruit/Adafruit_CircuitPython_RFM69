@@ -6,21 +6,19 @@
 # This example is for systems that support interrupts like the Raspberry Pi with "blinka"
 # CircuitPython does not support interrupts so it will not work on  Circutpython boards
 import time
+
 import board
 import busio
 import digitalio
 import RPi.GPIO as io
+
 import adafruit_rfm69
 
 
 # setup interrupt callback function
 def rfm69_callback(rfm69_irq):
-    global packet_received  # pylint: disable=global-statement
-    print(
-        "IRQ detected on pin {0} payload_ready {1} ".format(
-            rfm69_irq, rfm69.payload_ready
-        )
-    )
+    global packet_received  # noqa: PLW0603
+    print(f"IRQ detected on pin {rfm69_irq} payload_ready {rfm69.payload_ready} ")
     # see if this was a payload_ready interrupt ignore if not
     if rfm69.payload_ready:
         packet = rfm69.receive(timeout=None)
@@ -28,9 +26,9 @@ def rfm69_callback(rfm69_irq):
             # Received a packet!
             packet_received = True
             # Print out the raw bytes of the packet:
-            print("Received (raw bytes): {0}".format(packet))
+            print(f"Received (raw bytes): {packet}")
             print([hex(x) for x in packet])
-            print("RSSI: {0}".format(rfm69.last_rssi))
+            print(f"RSSI: {rfm69.last_rssi}")
 
 
 # Define radio parameters.
@@ -49,15 +47,13 @@ rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
-rfm69.encryption_key = (
-    b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
-)
+rfm69.encryption_key = b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
 
 # Print out some chip state:
-print("Temperature: {0}C".format(rfm69.temperature))
-print("Frequency: {0}mhz".format(rfm69.frequency_mhz))
-print("Bit rate: {0}kbit/s".format(rfm69.bitrate / 1000))
-print("Frequency deviation: {0}hz".format(rfm69.frequency_deviation))
+print(f"Temperature: {rfm69.temperature}C")
+print(f"Frequency: {rfm69.frequency_mhz}mhz")
+print(f"Bit rate: {rfm69.bitrate / 1000}kbit/s")
+print(f"Frequency deviation: {rfm69.frequency_deviation}hz")
 
 # configure the interrupt pin and event handling.
 RFM69_G0 = 22

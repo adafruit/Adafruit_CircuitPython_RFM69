@@ -4,9 +4,11 @@
 # Example to send a packet periodically
 
 import time
+
 import board
 import busio
 import digitalio
+
 import adafruit_rfm69
 
 # set the time interval (seconds) for sending packets
@@ -28,14 +30,12 @@ rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
-rfm69.encryption_key = (
-    b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
-)
+rfm69.encryption_key = b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
 
 # initialize counter
 counter = 0
 # send a broadcast mesage
-rfm69.send(bytes("message number {}".format(counter), "UTF-8"))
+rfm69.send(bytes(f"message number {counter}", "UTF-8"))
 
 # Wait to receive packets.
 print("Waiting for packets...")
@@ -49,7 +49,7 @@ while True:
     if packet is not None:
         # Received a packet!
         # Print out the raw bytes of the packet:
-        print("Received (raw bytes): {0}".format(packet))
+        print(f"Received (raw bytes): {packet}")
         # send reading after any packet received
     if time.monotonic() - time_now > transmit_interval:
         # reset timeer
@@ -57,4 +57,4 @@ while True:
         # clear flag to send data
         send_reading = False
         counter = counter + 1
-        rfm69.send(bytes("message number {}".format(counter), "UTF-8"))
+        rfm69.send(bytes(f"message number {counter}", "UTF-8"))
