@@ -47,8 +47,10 @@ Implementation Notes
   https://github.com/adafruit/circuitpython/releases
 * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 """
+
 import random
 import time
+
 import adafruit_bus_device.spi_device as spidev
 from micropython import const
 
@@ -63,9 +65,10 @@ except ImportError:
 
 try:
     from typing import Callable, Optional, Type
-    from circuitpython_typing import WriteableBuffer, ReadableBuffer
-    from digitalio import DigitalInOut
+
     from busio import SPI
+    from circuitpython_typing import ReadableBuffer, WriteableBuffer
+    from digitalio import DigitalInOut
 except ImportError:
     pass
 
@@ -138,14 +141,7 @@ _TICKS_PERIOD = const(1 << 29)
 _TICKS_MAX = const(_TICKS_PERIOD - 1)
 _TICKS_HALFPERIOD = const(_TICKS_PERIOD // 2)
 
-# Disable the silly too many instance members warning.  Pylint has no knowledge
-# of the context and is merely guessing at the proper amount of members.  This
-# is a complex chip which requires exposing many attributes and state.  Disable
-# the warning to work around the error.
-# pylint: disable=too-many-instance-attributes
-
-# disable another pylint nit-pick
-# pylint: disable=too-many-public-methods
+# This is a complex chip which requires exposing many attributes and state.
 
 
 def ticks_diff(ticks1: int, ticks2: int) -> int:
@@ -226,17 +222,11 @@ class RFM69:
         # used by the parent RFM69 class instance vs. each having their own
         # buffer and taking too much memory).
 
-        # Quirk of pylint that it requires public methods for a class.  This
-        # is a decorator class in Python and by design it has no public methods.
-        # Instead it uses dunder accessors like get and set below.  For some
-        # reason pylint can't figure this out so disable the check.
-        # pylint: disable=too-few-public-methods
+        # This is a decorator class in Python and by design it has no public methods.
+        # Instead it uses dunder accessors like get and set below.
 
-        # Again pylint fails to see the true intent of this code and warns
-        # against private access by calling the write and read functions below.
-        # This is by design as this is an internally used class.  Disable the
-        # check from pylint.
-        # pylint: disable=protected-access
+        # This is an internally used class that calls the read/write functions
+        # of the parent class.
 
         def __init__(self, address: int, *, offset: int = 0, bits: int = 1) -> None:
             assert 0 <= offset <= 7
@@ -287,20 +277,18 @@ class RFM69:
     mode_ready = _RegisterBits(_REG_IRQ_FLAGS1, offset=7)
     dio_0_mapping = _RegisterBits(_REG_DIO_MAPPING1, offset=6, bits=2)
 
-    # pylint: disable=too-many-statements
-    # pylint: disable=too-many-arguments
-    def __init__(  # pylint: disable=invalid-name
+    def __init__(
         self,
         spi: SPI,
         cs: DigitalInOut,
         reset: DigitalInOut,
         frequency: int,
         *,
-        sync_word: bytes = b"\x2D\xD4",
+        sync_word: bytes = b"\x2d\xd4",
         preamble_length: int = 4,
         encryption_key: Optional[bytes] = None,
         high_power: bool = True,
-        baudrate: int = 2000000
+        baudrate: int = 2000000,
     ) -> None:
         self._tx_power = 13
         self.high_power = high_power
@@ -312,7 +300,7 @@ class RFM69:
         self.reset()  # Reset the chip.
         # Check the version of the chip.
         version = self._read_u8(_REG_VERSION)
-        if version not in (0x23, 0x24):
+        if version not in {0x23, 0x24}:
             raise RuntimeError("Invalid RFM69 version, check wiring!")
         self.idle()  # Enter idle state.
         # Setup the chip in a similar way to the RadioHead RFM69 library.
@@ -395,13 +383,8 @@ class RFM69:
            Fourth byte of the RadioHead header.
         """
 
-    # pylint: enable=too-many-statements
-
-    # pylint: disable=no-member
     # Reconsider this disable when it can be tested.
-    def _read_into(
-        self, address: int, buf: WriteableBuffer, length: Optional[int] = None
-    ) -> None:
+    def _read_into(self, address: int, buf: WriteableBuffer, length: Optional[int] = None) -> None:
         # Read a number of bytes from the specified address into the provided
         # buffer.  If length is not specified (the default) the entire buffer
         # will be filled.
@@ -418,9 +401,7 @@ class RFM69:
         self._read_into(address, self._BUFFER, length=1)
         return self._BUFFER[0]
 
-    def _write_from(
-        self, address: int, buf: ReadableBuffer, length: Optional[int] = None
-    ) -> None:
+    def _write_from(self, address: int, buf: ReadableBuffer, length: Optional[int] = None) -> None:
         # Write a number of bytes to the provided address and taken from the
         # provided buffer.  If no length is specified (the default) the entire
         # buffer is written.
@@ -749,7 +730,6 @@ class RFM69:
         """Receive status"""
         return (self._read_u8(_REG_IRQ_FLAGS2) & 0x4) >> 2
 
-    # pylint: disable=too-many-branches
     def send(
         self,
         data: ReadableBuffer,
@@ -758,7 +738,7 @@ class RFM69:
         destination: Optional[int] = None,
         node: Optional[int] = None,
         identifier: Optional[int] = None,
-        flags: Optional[int] = None
+        flags: Optional[int] = None,
     ) -> bool:
         """Send a string of data using the transmitter.
         You can only send 60 bytes at a time
@@ -773,13 +753,8 @@ class RFM69:
 
         Returns: True if success or False if the send timed out.
         """
-        # Disable pylint warning to not use length as a check for zero.
-        # This is a puzzling warning as the below code is clearly the most
-        # efficient and proper way to ensure a precondition that the provided
-        # buffer be within an expected range of bounds.  Disable this check.
-        # pylint: disable=len-as-condition
+        # Ensure the provided buffer is within the expected range of bounds.
         assert 0 < len(data) <= 60
-        # pylint: enable=len-as-condition
         self.idle()  # Stop receiving to clear FIFO and keep it clear.
         # Fill the FIFO with a packet to send.
         # Combine header and data to form payload
@@ -859,7 +834,7 @@ class RFM69:
         keep_listening: bool = True,
         with_ack: bool = False,
         timeout: Optional[float] = None,
-        with_header: bool = False
+        with_header: bool = False,
     ) -> int:
         """Wait to receive a packet from the receiver. If a packet is found the payload bytes
         are returned, otherwise None is returned (which indicates the timeout elapsed with no
@@ -904,11 +879,10 @@ class RFM69:
             if fifo_length < 5:
                 packet = None
             else:
-                if (
-                    self.node != _RH_BROADCAST_ADDRESS
-                    and packet[0] != _RH_BROADCAST_ADDRESS
-                    and packet[0] != self.node
-                ):
+                if self.node != _RH_BROADCAST_ADDRESS and packet[0] not in {
+                    _RH_BROADCAST_ADDRESS,
+                    self.node,
+                }:
                     packet = None
                 # send ACK unless this was an ACK or a broadcast
                 elif (
@@ -928,15 +902,11 @@ class RFM69:
                         flags=(packet[3] | _RH_FLAGS_ACK),
                     )
                     # reject Retries if we have seen this idetifier from this source before
-                    if (self.seen_ids[packet[1]] == packet[2]) and (
-                        packet[3] & _RH_FLAGS_RETRY
-                    ):
+                    if (self.seen_ids[packet[1]] == packet[2]) and (packet[3] & _RH_FLAGS_RETRY):
                         packet = None
                     else:  # save the packet identifier for this source
                         self.seen_ids[packet[1]] = packet[2]
-                if (
-                    not with_header and packet is not None
-                ):  # skip the header if not wanted
+                if not with_header and packet is not None:  # skip the header if not wanted
                     packet = packet[4:]
         # Listen again if necessary and return the result packet.
         if keep_listening:

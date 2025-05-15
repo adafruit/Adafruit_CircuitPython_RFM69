@@ -10,7 +10,6 @@ import digitalio
 
 import adafruit_rfm69
 
-
 # Define radio parameters.
 RADIO_FREQ_MHZ = 915.0  # Frequency of the radio in Mhz. Must match your
 # module! Can be a value like 915.0, 433.0, etc.
@@ -35,15 +34,13 @@ rfm69 = adafruit_rfm69.RFM69(spi, CS, RESET, RADIO_FREQ_MHZ)
 
 # Optionally set an encryption key (16 byte AES key). MUST match both
 # on the transmitter and receiver (or be set to None to disable/the default).
-rfm69.encryption_key = (
-    b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
-)
+rfm69.encryption_key = b"\x01\x02\x03\x04\x05\x06\x07\x08\x01\x02\x03\x04\x05\x06\x07\x08"
 
 # Print out some chip state:
-print("Temperature: {0}C".format(rfm69.temperature))
-print("Frequency: {0}mhz".format(rfm69.frequency_mhz))
-print("Bit rate: {0}kbit/s".format(rfm69.bitrate / 1000))
-print("Frequency deviation: {0}hz".format(rfm69.frequency_deviation))
+print(f"Temperature: {rfm69.temperature}C")
+print(f"Frequency: {rfm69.frequency_mhz}mhz")
+print(f"Bit rate: {rfm69.bitrate / 1000}kbit/s")
+print(f"Frequency deviation: {rfm69.frequency_deviation}hz")
 
 # Send a packet.  Note you can only send a packet up to 60 bytes in length.
 # This is a limitation of the radio packet size, so if you need to send larger
@@ -70,10 +67,10 @@ while True:
         # Received a packet!
         LED.value = True
         # Print out the raw bytes of the packet:
-        print("Received (raw bytes): {0}".format(packet))
+        print(f"Received (raw bytes): {packet}")
         # And decode to ASCII text and print it too.  Note that you always
         # receive raw bytes and need to convert to a text format like ASCII
         # if you intend to do string processing on your data.  Make sure the
         # sending side is sending ASCII data before you try to decode!
         packet_text = str(packet, "ascii")
-        print("Received (ASCII): {0}".format(packet_text))
+        print(f"Received (ASCII): {packet_text}")
