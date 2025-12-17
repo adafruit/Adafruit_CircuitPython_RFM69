@@ -75,7 +75,6 @@ except ImportError:
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_RFM69.git"
 
-
 # Internal constants:
 _REG_FIFO = const(0x00)
 _REG_OP_MODE = const(0x01)
@@ -862,53 +861,59 @@ class RFM69:
             # Make sure we are listening for packets.
             self.listen()
             timed_out = check_timeout(self.payload_ready, timeout)
+
+        if timed_out and not self.payload_ready():
+            # don't touch the FIFO if we want to keep listening
+            if not keep_listening:
+                self.idle()
+            return None
+
         # Payload ready is set, a packet is in the FIFO.
         packet = None
         # save last RSSI reading
         self.last_rssi = self.rssi
         # Enter idle mode to stop receiving other packets.
         self.idle()
-        if not timed_out:
-            # Read the length of the FIFO.
-            fifo_length = self._read_u8(_REG_FIFO)
-            # Handle if the received packet is too small to include the 4 byte
-            # RadioHead header and at least one byte of data --reject this packet and ignore it.
-            if fifo_length > 0:  # read and clear the FIFO if anything in it
-                packet = bytearray(fifo_length)
-                self._read_into(_REG_FIFO, packet, fifo_length)
+        # Read the length of the FIFO.
+        fifo_length = self._read_u8(_REG_FIFO)
+        # Handle if the received packet is too small to include the 4 byte
+        # RadioHead header and at least one byte of data --reject this packet and ignore it.
+        if fifo_length > 0:  # read and clear the FIFO if anything in it
+            packet = bytearray(fifo_length)
+            self._read_into(_REG_FIFO, packet, fifo_length)
 
-            if fifo_length < 5:
+        if fifo_length < 5:
+            packet = None
+        else:
+            if self.node != _RH_BROADCAST_ADDRESS and packet[0] not in {
+                _RH_BROADCAST_ADDRESS,
+                self.node,
+            }:
                 packet = None
-            else:
-                if self.node != _RH_BROADCAST_ADDRESS and packet[0] not in {
-                    _RH_BROADCAST_ADDRESS,
-                    self.node,
-                }:
+            # send ACK unless this was an ACK or a broadcast
+            elif (
+                with_ack
+                and ((packet[3] & _RH_FLAGS_ACK) == 0)
+                and (packet[0] != _RH_BROADCAST_ADDRESS)
+            ):
+                # delay before sending Ack to give receiver a chance to get ready
+                if self.ack_delay is not None:
+                    time.sleep(self.ack_delay)
+                # send ACK packet to sender (data is b'!')
+                self.send(
+                    b"!",
+                    destination=packet[1],
+                    node=packet[0],
+                    identifier=packet[2],
+                    flags=(packet[3] | _RH_FLAGS_ACK),
+                )
+                # reject Retries if we have seen this idetifier from this source before
+                if (self.seen_ids[packet[1]] == packet[2]) and (packet[3] & _RH_FLAGS_RETRY):
                     packet = None
-                # send ACK unless this was an ACK or a broadcast
-                elif (
-                    with_ack
-                    and ((packet[3] & _RH_FLAGS_ACK) == 0)
-                    and (packet[0] != _RH_BROADCAST_ADDRESS)
-                ):
-                    # delay before sending Ack to give receiver a chance to get ready
-                    if self.ack_delay is not None:
-                        time.sleep(self.ack_delay)
-                    # send ACK packet to sender (data is b'!')
-                    self.send(
-                        b"!",
-                        destination=packet[1],
-                        node=packet[0],
-                        identifier=packet[2],
-                        flags=(packet[3] | _RH_FLAGS_ACK),
-                    )
-                    # reject Retries if we have seen this idetifier from this source before
-                    if (self.seen_ids[packet[1]] == packet[2]) and (packet[3] & _RH_FLAGS_RETRY):
-                        packet = None
-                    else:  # save the packet identifier for this source
-                        self.seen_ids[packet[1]] = packet[2]
-                if not with_header and packet is not None:  # skip the header if not wanted
-                    packet = packet[4:]
+                else:  # save the packet identifier for this source
+                    self.seen_ids[packet[1]] = packet[2]
+            if not with_header and packet is not None:  # skip the header if not wanted
+                packet = packet[4:]
         # Listen again if necessary and return the result packet.
         if keep_listening:
             self.listen()
