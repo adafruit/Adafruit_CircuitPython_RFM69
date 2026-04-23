@@ -776,7 +776,7 @@ class RFM69:
             payload[4] = self.flags
         else:  # use kwarg
             payload[4] = flags
-        payload = payload + data
+        payload += data
         # Write payload to transmit fifo
         self._write_from(_REG_FIFO, payload)
         # Turn on transmit mode to send out the packet.
@@ -822,7 +822,7 @@ class RFM69:
             if not got_ack:
                 # delay by random amount before next try
                 time.sleep(self.ack_wait + self.ack_wait * random.random())
-            retries_remaining = retries_remaining - 1
+            retries_remaining -= 1
             # set retry flag in packet header
             self.flags |= _RH_FLAGS_RETRY
         self.flags = 0  # clear flags
